@@ -1,66 +1,102 @@
 "use strict";
 
+const DEFAULT_SETTINGS = {
+    showWatchLater: true,
+    hideShorts: false,
+    hideCategories: false
+};
+
+const controls = {
+    showWatchLater: document.getElementById("showWatchLater"),
+    hideShorts: document.getElementById("hideShorts"),
+    hideCategories: document.getElementById("hideCategories")
+};
+
+const stateLabels = {
+    showWatchLater: document.getElementById("showWatchLaterState"),
+    hideShorts: document.getElementById("hideShortsState"),
+    hideCategories: document.getElementById("hideCategoriesState")
+};
+
 const status = document.getElementById("status");
 
-document.getElementById("extract").addEventListener("click", async () => {
-    status.textContent = "Fetching Watch Later...";
-
-    try {
-        const videos = await fetchWatchLater();
-
-        await chrome.storage.local.set({ videos });
-
-        status.textContent =
-            `Saved ${videos.length} videos.\nOpen YouTube Home.`;
-    } catch (e) {
-        status.textContent = "Failed: " + e.message;
-    }
+init().catch((error) => {
+    status.textContent = `Не удалось загрузить настройки: ${error.message}`;
 });
 
-async function fetchWatchLater() {
-    const response = await fetch(
-        "https://www.youtube.com/playlist?list=WL",
-        {
-            credentials: "include"
+async function init() {
+    assertUi();
+
+    const settings = await readSettings();
+
+    syncControls(settings);
+    renderStatus(settings);
+
+    controls.showWatchLater.addEventListener("change", handleToggleChange);
+    controls.hideShorts.addEventListener("change", handleToggleChange);
+    controls.hideCategories.addEventListener("change", handleToggleChange);
+}
+
+function assertUi() {
+    for (const control of Object.values(controls)) {
+        if (!control) {
+            throw new Error("Popup control is missing");
         }
-    );
-
-    const html = await response.text();
-
-    const match = html.match(/var ytInitialData = (.*?);<\/script>/s);
-
-    if (!match) {
-        throw new Error("ytInitialData not found");
     }
 
-    const data = JSON.parse(match[1]);
+    if (!status) {
+        throw new Error("Popup status element is missing");
+    }
+}
 
-    const contents =
-        data.contents
-        ?.twoColumnBrowseResultsRenderer
-        ?.tabs?.[0]
-        ?.tabRenderer
-        ?.content
-        ?.sectionListRenderer
-        ?.contents?.[0]
-        ?.itemSectionRenderer
-        ?.contents?.[0]
-        ?.playlistVideoListRenderer
-        ?.contents || [];
+async function readSettings() {
+    const { watchTubeSettings } = await chrome.storage.local.get("watchTubeSettings");
+    return {
+        ...DEFAULT_SETTINGS,
+        ...(watchTubeSettings || {})
+    };
+}
 
-    const videos = [];
+function syncControls(settings) {
+    controls.showWatchLater.checked = settings.showWatchLater;
+    controls.hideShorts.checked = settings.hideShorts;
+    controls.hideCategories.checked = settings.hideCategories;
 
-    for (const item of contents) {
-        const v = item.playlistVideoRenderer;
-        if (!v) continue;
+    stateLabels.showWatchLater.textContent = settings.showWatchLater ? "Включено" : "Выключено";
+    stateLabels.hideShorts.textContent = settings.hideShorts ? "Включено" : "Выключено";
+    stateLabels.hideCategories.textContent = settings.hideCategories ? "Включено" : "Выключено";
+}
 
-        videos.push({
-            title: v.title?.runs?.[0]?.text || "",
-            url: "https://youtube.com/watch?v=" + v.videoId,
-            channel:
-                v.shortBylineText?.runs?.[0]?.text || ""
-        });
+async function handleToggleChange() {
+    const nextSettings = collectSettings();
+
+    await chrome.storage.local.set({ watchTubeSettings: nextSettings });
+    syncControls(nextSettings);
+    renderStatus(nextSettings);
+}
+
+function collectSettings() {
+    return {
+        showWatchLater: controls.showWatchLater.checked,
+        hideShorts: controls.hideShorts.checked,
+        hideCategories: controls.hideCategories.checked
+    };
+}
+
+function renderStatus(settings) {
+    const enabledFeatures = [];
+
+    if (settings.showWatchLater) {
+        enabledFeatures.push("Watch Later на главной");
+    }
+    if (settings.hideShorts) {
+        enabledFeatures.push("скрытие Shorts");
+    }
+    if (settings.hideCategories) {
+        enabledFeatures.push("скрытие категорий");
     }
 
-    return videos;
+    status.textContent = enabledFeatures.length
+        ? `Активно: ${enabledFeatures.join(", ")}. Изменения применяются автоматически на открытых вкладках YouTube.`
+        : "Все дополнительные функции отключены. YouTube будет выглядеть почти как обычно.";
 }
