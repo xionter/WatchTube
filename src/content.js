@@ -1,9 +1,6 @@
-// content.js
-
 const SECTION_ID = "watchtube-custom-row";
-const DEFAULT_TITLE = "WatchTube";
 
-let cachedState = {
+let state = {
   enabled: true,
   item: "",
 };
@@ -13,8 +10,7 @@ function extractVideoId(url) {
     const parsed = new URL(url.trim());
 
     if (parsed.hostname.includes("youtu.be")) {
-      const id = parsed.pathname.replace("/", "").trim();
-      return id || null;
+      return parsed.pathname.slice(1) || null;
     }
 
     if (parsed.hostname.includes("youtube.com")) {
@@ -25,10 +21,6 @@ function extractVideoId(url) {
       if (parsed.pathname.startsWith("/shorts/")) {
         return parsed.pathname.split("/")[2] || null;
       }
-
-      if (parsed.pathname.startsWith("/embed/")) {
-        return parsed.pathname.split("/")[2] || null;
-      }
     }
 
     return null;
@@ -37,70 +29,73 @@ function extractVideoId(url) {
   }
 }
 
-function normalizeVideoUrl(input) {
-  const videoId = extractVideoId(input);
-  if (!videoId) return null;
-
-  return `https://www.youtube.com/watch?v=${videoId}`;
-}
-
-function parseVideoUrls(rawValue) {
-  if (typeof rawValue !== "string") return [];
+function parseVideoUrls(raw) {
+  if (typeof raw !== "string") return [];
 
   return [...new Set(
-    rawValue
-      .split(/[\n,\s;]+/g)
-      .map((part) => part.trim())
+    raw
+      .split(/[\n,; ]+/)
+      .map((x) => x.trim())
       .filter(Boolean)
-      .map(normalizeVideoUrl)
-      .filter(Boolean)
+      .filter((x) => x.startsWith("http"))
   )];
 }
 
-function createVideoCard(videoUrl) {
-  const videoId = extractVideoId(videoUrl);
-  if (!videoId) return null;
-
-  const card = document.createElement("a");
-  card.href = `https://www.youtube.com/watch?v=${videoId}`;
-  card.className = "watchtube-video-card";
-  card.style.display = "block";
-  card.style.width = "210px";
-  card.style.minWidth = "210px";
-  card.style.textDecoration = "none";
-  card.style.color = "inherit";
-  card.style.flex = "0 0 auto";
-
-  const thumbnail = document.createElement("img");
-  thumbnail.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-  thumbnail.alt = "Video thumbnail";
-  thumbnail.style.width = "100%";
-  thumbnail.style.display = "block";
-  thumbnail.style.borderRadius = "12px";
-  thumbnail.style.background = "#111";
-
-  const title = document.createElement("div");
-  title.textContent = videoUrl;
-  title.style.marginTop = "8px";
-  title.style.fontSize = "14px";
-  title.style.lineHeight = "1.4";
-  title.style.fontWeight = "500";
-  title.style.color = "var(--yt-spec-text-primary)";
-
-  card.appendChild(thumbnail);
-  card.appendChild(title);
-
-  return card;
+function removeSection() {
+  const old = document.getElementById(SECTION_ID);
+  if (old) old.remove();
 }
 
-function createSection(urls) {
+function createCard(url) {
+  const videoId = extractVideoId(url);
+  if (!videoId) return null;
+
+  const a = document.createElement("a");
+  a.href = `https://www.youtube.com/watch?v=${videoId}`;
+  a.style.display = "block";
+  a.style.minWidth = "210px";
+  a.style.width = "210px";
+  a.style.textDecoration = "none";
+  a.style.color = "inherit";
+  a.style.flex = "0 0 auto";
+
+  const img = document.createElement("img");
+  img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  img.alt = "thumbnail";
+  img.style.width = "100%";
+  img.style.display = "block";
+  img.style.borderRadius = "12px";
+
+  const text = document.createElement("div");
+  text.textContent = url;
+  text.style.marginTop = "8px";
+  text.style.fontSize = "14px";
+  text.style.lineHeight = "1.4";
+  text.style.color = "var(--yt-spec-text-primary)";
+
+  a.append(img, text);
+  return a;
+}
+
+function render() {
+  removeSection();
+
+  if (location.pathname !== "/") return;
+  if (!state.enabled) return;
+
+  const target = document.querySelector("ytd-rich-grid-renderer");
+  if (!target || !target.parentNode) return;
+
+  const urls = parseVideoUrls(state.item);
+  if (!urls.length) return;
+
   const section = document.createElement("section");
   section.id = SECTION_ID;
   section.style.margin = "24px 0";
   section.style.padding = "0 24px";
 
   const title = document.createElement("h2");
-  title.textContent = `${DEFAULT_TITLE}: My Videos`;
+  title.textContent = "WatchTube: My Videos";
   title.style.fontSize = "20px";
   title.style.fontWeight = "700";
   title.style.margin = "0 0 16px 0";
@@ -112,98 +107,51 @@ function createSection(urls) {
   row.style.overflowX = "auto";
   row.style.paddingBottom = "8px";
 
-  urls.forEach((url) => {
-    const card = createVideoCard(url);
+  for (const url of urls) {
+    const card = createCard(url);
     if (card) row.appendChild(card);
-  });
-
-  if (!row.children.length) {
-    const empty = document.createElement("div");
-    empty.textContent = "Добавь ссылки на YouTube в popup расширения.";
-    empty.style.fontSize = "14px";
-    empty.style.color = "var(--yt-spec-text-secondary)";
-    row.appendChild(empty);
   }
 
-  section.appendChild(title);
-  section.appendChild(row);
+  if (!row.children.length) return;
 
-  return section;
-}
-
-function getHomeTarget() {
-  return (
-    document.querySelector("ytd-rich-grid-renderer") ||
-    document.querySelector("ytd-two-column-browse-results-renderer")
-  );
-}
-
-function isHomePage() {
-  return location.pathname === "/";
-}
-
-function removeSection() {
-  document.getElementById(SECTION_ID)?.remove();
-}
-
-function renderSection() {
-  removeSection();
-
-  if (!isHomePage()) return;
-  if (!cachedState.enabled) return;
-
-  const target = getHomeTarget();
-  if (!target || !target.parentNode) return;
-
-  const urls = parseVideoUrls(cachedState.item);
-  if (!urls.length) return;
-
-  const section = createSection(urls);
+  section.append(title, row);
   target.parentNode.insertBefore(section, target);
 }
 
-function loadStateAndRender() {
+function loadState() {
   chrome.storage.sync.get(["enabled", "item"], (data) => {
-    cachedState = {
-      enabled: Boolean(data.enabled),
-      item: typeof data.item === "string" ? data.item : "",
-    };
-
-    renderSection();
+    state.enabled = data.enabled !== false;
+    state.item = typeof data.item === "string" ? data.item : "";
+    render();
   });
 }
 
-function observePage() {
-  const observer = new MutationObserver(() => {
-    if (!document.getElementById(SECTION_ID)) {
-      renderSection();
-    }
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
-}
-
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== "sync") return;
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "sync") return;
 
   if (changes.enabled) {
-    cachedState.enabled = Boolean(changes.enabled.newValue);
+    state.enabled = changes.enabled.newValue !== false;
   }
 
   if (changes.item) {
-    cachedState.item = typeof changes.item.newValue === "string"
+    state.item = typeof changes.item.newValue === "string"
       ? changes.item.newValue
       : "";
   }
 
-  renderSection();
+  render();
 });
 
-window.addEventListener("yt-navigate-finish", loadStateAndRender);
-window.addEventListener("load", () => {
-  loadStateAndRender();
-  observePage();
+window.addEventListener("load", loadState);
+window.addEventListener("yt-navigate-finish", loadState);
+
+const observer = new MutationObserver(() => {
+  if (location.pathname === "/" && !document.getElementById(SECTION_ID)) {
+    render();
+  }
+});
+
+observer.observe(document.documentElement, {
+  childList: true,
+  subtree: true,
 });
