@@ -1,157 +1,122 @@
-const SECTION_ID = "watchtube-custom-row";
+"use strict";
 
-let state = {
-  enabled: true,
-  item: "",
-};
+let alreadyInjected = false;
 
-function extractVideoId(url) {
-  try {
-    const parsed = new URL(url.trim());
+init();
 
-    if (parsed.hostname.includes("youtu.be")) {
-      return parsed.pathname.slice(1) || null;
+function init() {
+    observePage();
+    tryInject();
+}
+
+function observePage() {
+    const observer = new MutationObserver(() => {
+        tryInject();
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+}
+
+async function tryInject() {
+    if (!isHomePage()) return;
+    if (alreadyInjected) return;
+
+    const grid = document.querySelector("ytd-rich-grid-renderer");
+    if (!grid) return;
+
+    const data = await chrome.storage.local.get("videos");
+    const videos = data.videos || [];
+
+    if (!videos.length) return;
+
+    alreadyInjected = true;
+
+    injectRow(videos);
+}
+
+function isHomePage() {
+    return location.pathname === "/";
+}
+
+function injectRow(videos) {
+    const existing = document.getElementById("watch-later-row");
+    if (existing) return;
+
+    const random = shuffle([...videos]).slice(0, 5);
+
+    const container = document.createElement("div");
+    container.id = "watch-later-row";
+    container.style.margin = "24px";
+    container.style.padding = "16px";
+    container.style.background = "#0f0f0f";
+    container.style.borderRadius = "18px";
+
+    const title = document.createElement("h2");
+    title.textContent = "From Watch Later";
+    title.style.color = "white";
+    title.style.marginBottom = "14px";
+    title.style.fontSize = "20px";
+
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.gap = "16px";
+    row.style.overflowX = "auto";
+
+    for (const v of random) {
+        const card = document.createElement("a");
+        card.href = v.url;
+        card.style.textDecoration = "none";
+        card.style.color = "white";
+        card.style.width = "260px";
+        card.style.flex = "0 0 auto";
+
+        const thumb = extractThumb(v.url);
+
+        card.innerHTML = `
+            <img
+                src="${thumb}"
+                style="width:100%;border-radius:12px;"
+            >
+            <div style="margin-top:8px;font-size:14px;line-height:1.4;">
+                ${escapeHtml(v.title)}
+            </div>
+            <div style="margin-top:4px;color:#aaa;font-size:12px;">
+                ${escapeHtml(v.channel)}
+            </div>
+        `;
+
+        row.appendChild(card);
     }
 
-    if (parsed.hostname.includes("youtube.com")) {
-      if (parsed.pathname === "/watch") {
-        return parsed.searchParams.get("v");
-      }
+    container.appendChild(title);
+    container.appendChild(row);
 
-      if (parsed.pathname.startsWith("/shorts/")) {
-        return parsed.pathname.split("/")[2] || null;
-      }
+    const target =
+        document.querySelector("ytd-rich-grid-renderer") ||
+        document.querySelector("#contents");
+
+    target.prepend(container);
+}
+
+function extractThumb(url) {
+    const match = url.match(/[?&]v=([^&]+)/);
+    const id = match ? match[1] : "";
+    return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+}
+
+function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-
-    return null;
-  } catch {
-    return null;
-  }
+    return arr;
 }
 
-function parseVideoUrls(raw) {
-  if (typeof raw !== "string") return [];
-
-  return [...new Set(
-    raw
-      .split(/[\n,; ]+/)
-      .map((x) => x.trim())
-      .filter(Boolean)
-      .filter((x) => x.startsWith("http"))
-  )];
+function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
 }
-
-function removeSection() {
-  const old = document.getElementById(SECTION_ID);
-  if (old) old.remove();
-}
-
-function createCard(url) {
-  const videoId = extractVideoId(url);
-  if (!videoId) return null;
-
-  const a = document.createElement("a");
-  a.href = `https://www.youtube.com/watch?v=${videoId}`;
-  a.style.display = "block";
-  a.style.minWidth = "210px";
-  a.style.width = "210px";
-  a.style.textDecoration = "none";
-  a.style.color = "inherit";
-  a.style.flex = "0 0 auto";
-
-  const img = document.createElement("img");
-  img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-  img.alt = "thumbnail";
-  img.style.width = "100%";
-  img.style.display = "block";
-  img.style.borderRadius = "12px";
-
-  const text = document.createElement("div");
-  text.textContent = url;
-  text.style.marginTop = "8px";
-  text.style.fontSize = "14px";
-  text.style.lineHeight = "1.4";
-  text.style.color = "var(--yt-spec-text-primary)";
-
-  a.append(img, text);
-  return a;
-}
-
-function render() {
-  removeSection();
-
-  if (location.pathname !== "/") return;
-  if (!state.enabled) return;
-
-  const target = document.querySelector("ytd-rich-grid-renderer");
-  if (!target || !target.parentNode) return;
-
-  const urls = parseVideoUrls(state.item);
-  if (!urls.length) return;
-
-  const section = document.createElement("section");
-  section.id = SECTION_ID;
-  section.style.margin = "24px 0";
-  section.style.padding = "0 24px";
-
-  const title = document.createElement("h2");
-  title.textContent = "WatchTube: My Videos";
-  title.style.fontSize = "20px";
-  title.style.fontWeight = "700";
-  title.style.margin = "0 0 16px 0";
-  title.style.color = "var(--yt-spec-text-primary)";
-
-  const row = document.createElement("div");
-  row.style.display = "flex";
-  row.style.gap = "16px";
-  row.style.overflowX = "auto";
-  row.style.paddingBottom = "8px";
-
-  for (const url of urls) {
-    const card = createCard(url);
-    if (card) row.appendChild(card);
-  }
-
-  if (!row.children.length) return;
-
-  section.append(title, row);
-  target.parentNode.insertBefore(section, target);
-}
-
-function loadState() {
-  chrome.storage.sync.get(["enabled", "item"], (data) => {
-    state.enabled = data.enabled !== false;
-    state.item = typeof data.item === "string" ? data.item : "";
-    render();
-  });
-}
-
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "sync") return;
-
-  if (changes.enabled) {
-    state.enabled = changes.enabled.newValue !== false;
-  }
-
-  if (changes.item) {
-    state.item = typeof changes.item.newValue === "string"
-      ? changes.item.newValue
-      : "";
-  }
-
-  render();
-});
-
-window.addEventListener("load", loadState);
-window.addEventListener("yt-navigate-finish", loadState);
-
-const observer = new MutationObserver(() => {
-  if (location.pathname === "/" && !document.getElementById(SECTION_ID)) {
-    render();
-  }
-});
-
-observer.observe(document.documentElement, {
-  childList: true,
-  subtree: true,
-});
