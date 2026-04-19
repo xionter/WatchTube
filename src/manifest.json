@@ -1,13 +1,18 @@
 {
-    "manifest_version": 3,
-    "name": "My Extension",
-    "version": "0.1.0",
-    "description": "My first cross-browser extension",
-
-    "action": {
-        "default_popup": "popup.html"
-    },
-    "permissions": [
-        "storage"
-    ]
+  "manifest_version": 3,
+  "name": "WatchTube",
+  "version": "0.1.0",
+  "description": "Customize YouTube home page",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.youtube.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }
