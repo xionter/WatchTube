@@ -3,65 +3,64 @@
 const status = document.getElementById("status");
 
 document.getElementById("extract").addEventListener("click", async () => {
-    status.textContent = "Opening Watch Later...";
+    status.textContent = "Fetching Watch Later...";
 
-    const tab = await chrome.tabs.create({
-        url: "https://www.youtube.com/playlist?list=WL",
-        active: true
-    });
+    try {
+        const videos = await fetchWatchLater();
 
-    await waitForTabLoad(tab.id);
+        await chrome.storage.local.set({ videos });
 
-    const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: scrapeWatchLater
-    });
-
-    const videos = results[0].result;
-
-    await chrome.storage.local.set({ videos });
-
-    status.textContent = `Saved ${videos.length} videos.\nOpen YouTube Home now.`;
+        status.textContent =
+            `Saved ${videos.length} videos.\nOpen YouTube Home.`;
+    } catch (e) {
+        status.textContent = "Failed: " + e.message;
+    }
 });
 
-function waitForTabLoad(tabId) {
-    return new Promise(resolve => {
-        chrome.tabs.onUpdated.addListener(function listener(id, info) {
-            if (id === tabId && info.status === "complete") {
-                chrome.tabs.onUpdated.removeListener(listener);
-                resolve();
-            }
+async function fetchWatchLater() {
+    const response = await fetch(
+        "https://www.youtube.com/playlist?list=WL",
+        {
+            credentials: "include"
+        }
+    );
+
+    const html = await response.text();
+
+    const match = html.match(/var ytInitialData = (.*?);<\/script>/s);
+
+    if (!match) {
+        throw new Error("ytInitialData not found");
+    }
+
+    const data = JSON.parse(match[1]);
+
+    const contents =
+        data.contents
+        ?.twoColumnBrowseResultsRenderer
+        ?.tabs?.[0]
+        ?.tabRenderer
+        ?.content
+        ?.sectionListRenderer
+        ?.contents?.[0]
+        ?.itemSectionRenderer
+        ?.contents?.[0]
+        ?.playlistVideoListRenderer
+        ?.contents || [];
+
+    const videos = [];
+
+    for (const item of contents) {
+        const v = item.playlistVideoRenderer;
+        if (!v) continue;
+
+        videos.push({
+            title: v.title?.runs?.[0]?.text || "",
+            url: "https://youtube.com/watch?v=" + v.videoId,
+            channel:
+                v.shortBylineText?.runs?.[0]?.text || ""
         });
-    });
-}
-
-async function scrapeWatchLater() {
-    function sleep(ms) {
-        return new Promise(r => setTimeout(r, ms));
     }
 
-    let lastHeight = 0;
-
-    for (;;) {
-        window.scrollTo(0, document.documentElement.scrollHeight);
-        await sleep(1500);
-
-        const newHeight = document.documentElement.scrollHeight;
-
-        if (newHeight === lastHeight) break;
-        lastHeight = newHeight;
-    }
-
-    const items = [...document.querySelectorAll("ytd-playlist-video-renderer")];
-
-    return items.map(item => {
-        const titleEl = item.querySelector("#video-title");
-        const channelEl = item.querySelector("ytd-channel-name a");
-
-        return {
-            title: titleEl?.textContent.trim() || "",
-            url: "https://youtube.com" + titleEl?.getAttribute("href"),
-            channel: channelEl?.textContent.trim() || ""
-        };
-    });
+    return videos;
 }

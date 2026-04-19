@@ -1,110 +1,161 @@
+// content.js
 "use strict";
 
-let alreadyInjected = false;
+let injectedVersion = 0;
+let observerStarted = false;
 
-init();
+start();
 
-function init() {
-    observePage();
-    tryInject();
+function start() {
+    watchYoutubeNavigation();
+    watchStorageChanges();
+    tryRender();
 }
 
-function observePage() {
+function watchYoutubeNavigation() {
+    if (observerStarted) return;
+    observerStarted = true;
+
+    let lastUrl = location.href;
+
     const observer = new MutationObserver(() => {
-        tryInject();
+        if (location.href !== lastUrl) {
+            lastUrl = location.href;
+            resetRow();
+            tryRender();
+        }
     });
 
-    observer.observe(document.body, {
+    observer.observe(document.documentElement, {
         childList: true,
         subtree: true
     });
 }
 
-async function tryInject() {
-    if (!isHomePage()) return;
-    if (alreadyInjected) return;
+function watchStorageChanges() {
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== "local") return;
+        if (!changes.videos) return;
 
-    const grid = document.querySelector("ytd-rich-grid-renderer");
-    if (!grid) return;
+        resetRow();
+        tryRender();
+    });
+}
+
+async function tryRender() {
+    if (!isHomePage()) return;
+
+    const grid =
+        document.querySelector("ytd-rich-grid-renderer") ||
+        document.querySelector("#contents");
+
+    if (!grid) {
+        setTimeout(tryRender, 1000);
+        return;
+    }
 
     const data = await chrome.storage.local.get("videos");
     const videos = data.videos || [];
 
     if (!videos.length) return;
 
-    alreadyInjected = true;
-
-    injectRow(videos);
+    renderRow(videos);
 }
 
-function isHomePage() {
-    return location.pathname === "/";
-}
+function renderRow(videos) {
+    removeExisting();
 
-function injectRow(videos) {
-    const existing = document.getElementById("watch-later-row");
-    if (existing) return;
+    const version = ++injectedVersion;
 
-    const random = shuffle([...videos]).slice(0, 5);
+    const picks = shuffle([...videos]).slice(0, 5);
 
-    const container = document.createElement("div");
-    container.id = "watch-later-row";
-    container.style.margin = "24px";
-    container.style.padding = "16px";
-    container.style.background = "#0f0f0f";
-    container.style.borderRadius = "18px";
+    const wrap = document.createElement("div");
+    wrap.id = "watch-later-row";
+    wrap.style.margin = "24px";
+    wrap.style.padding = "16px";
+    wrap.style.background = "#0f0f0f";
+    wrap.style.borderRadius = "18px";
+
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.justifyContent = "space-between";
+    header.style.alignItems = "center";
+    header.style.marginBottom = "14px";
 
     const title = document.createElement("h2");
     title.textContent = "From Watch Later";
     title.style.color = "white";
-    title.style.marginBottom = "14px";
+    title.style.margin = "0";
     title.style.fontSize = "20px";
+
+    const btn = document.createElement("button");
+    btn.textContent = "Shuffle";
+    btn.style.cursor = "pointer";
+    btn.style.padding = "8px 12px";
+    btn.style.borderRadius = "10px";
+    btn.style.border = "none";
+
+    btn.onclick = () => {
+        if (version !== injectedVersion) return;
+        renderRow(videos);
+    };
+
+    header.appendChild(title);
+    header.appendChild(btn);
 
     const row = document.createElement("div");
     row.style.display = "flex";
     row.style.gap = "16px";
     row.style.overflowX = "auto";
 
-    for (const v of random) {
+    for (const v of picks) {
         const card = document.createElement("a");
         card.href = v.url;
-        card.style.textDecoration = "none";
-        card.style.color = "white";
         card.style.width = "260px";
         card.style.flex = "0 0 auto";
+        card.style.textDecoration = "none";
+        card.style.color = "white";
 
-        const thumb = extractThumb(v.url);
+        const thumb = getThumb(v.url);
 
         card.innerHTML = `
-            <img
-                src="${thumb}"
-                style="width:100%;border-radius:12px;"
-            >
+            <img src="${thumb}" style="width:100%;border-radius:12px;">
             <div style="margin-top:8px;font-size:14px;line-height:1.4;">
                 ${escapeHtml(v.title)}
             </div>
             <div style="margin-top:4px;color:#aaa;font-size:12px;">
-                ${escapeHtml(v.channel)}
+                ${escapeHtml(v.channel || "")}
             </div>
         `;
 
         row.appendChild(card);
     }
 
-    container.appendChild(title);
-    container.appendChild(row);
+    wrap.appendChild(header);
+    wrap.appendChild(row);
 
     const target =
         document.querySelector("ytd-rich-grid-renderer") ||
         document.querySelector("#contents");
 
-    target.prepend(container);
+    target.prepend(wrap);
 }
 
-function extractThumb(url) {
-    const match = url.match(/[?&]v=([^&]+)/);
-    const id = match ? match[1] : "";
-    return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+function resetRow() {
+    removeExisting();
+}
+
+function removeExisting() {
+    document.getElementById("watch-later-row")?.remove();
+}
+
+function isHomePage() {
+    return location.pathname === "/";
+}
+
+function getThumb(url) {
+    const m = url.match(/[?&]v=([^&]+)/);
+    return m ? `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg` : "";
 }
 
 function shuffle(arr) {
@@ -116,7 +167,7 @@ function shuffle(arr) {
 }
 
 function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
+    const d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
 }
