@@ -1,15 +1,15 @@
 <html lang="en">
 <head>
-    <title>My popup</title>
-    <link rel="stylesheet" type="text/css" href="popup.css">
+    <title>YouTube Watchlist Exporter</title>
+    <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-<label class="switch">
-    <input id="enabled" type="checkbox">
-    <span class="slider round"></span>
-</label>
-<input class="secret" id="item" type="text">
+<div style="padding:15px; width:300px;">
+    <button id="extract">Extract Watch Later</button>
+    <button id="download">Download JSON</button>
+    <pre id="status"></pre>
+</div>
+
 <script src="popup.js"></script>
 </body>
 </html>
-
