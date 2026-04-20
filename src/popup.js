@@ -87,7 +87,7 @@ function renderStatus(settings) {
     const enabledFeatures = [];
 
     if (settings.showWatchLater) {
-        enabledFeatures.push("Watch Later на главной");
+        enabledFeatures.push("Watch Later в первой строке");
     }
     if (settings.hideShorts) {
         enabledFeatures.push("скрытие Shorts");

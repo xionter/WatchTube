@@ -11,6 +11,7 @@ const SETTINGS_KEY = "watchTubeSettings";
 const CACHE_KEY = "watchTubeCache";
 const STYLE_ID = "watchtube-style";
 const CACHE_TTL_MS = 30 * 60 * 1000;
+const MAX_FIRST_ROW_VIDEOS = 3;
 
 let domObserverStarted = false;
 let refreshScheduled = false;
@@ -83,12 +84,12 @@ async function refreshPage() {
         applyCategoryVisibility(settings.hideCategories);
 
         if (!settings.showWatchLater || !isHomePage()) {
-            removeExistingRow();
+            removeExistingItems();
             lastRenderedSignature = "";
             return;
         }
 
-        const grid = findHomeGrid();
+        const grid = findHomeContents();
 
         if (!grid) {
             window.setTimeout(scheduleRefresh, 800);
@@ -98,12 +99,12 @@ async function refreshPage() {
         const videos = await getWatchLaterVideos();
 
         if (!videos.length) {
-            removeExistingRow();
+            removeExistingItems();
             lastRenderedSignature = "";
             return;
         }
 
-        renderWatchLaterRow(grid, videos);
+        renderWatchLaterItems(grid, videos);
     })();
 
     try {
@@ -129,138 +130,127 @@ function ensureStyleElement() {
         document.documentElement.appendChild(style);
     }
 
-    if (style.textContent === buildWatchTubeCss()) {
+    const css = buildWatchTubeCss();
+    if (style.textContent === css) {
         return;
     }
 
-    style.textContent = buildWatchTubeCss();
+    style.textContent = css;
 }
 
 function buildWatchTubeCss() {
     return `
-        #watchtube-row {
-            margin: 24px 24px 8px;
-            padding: 18px;
-            border-radius: 18px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: linear-gradient(180deg, rgba(23, 23, 23, 0.95) 0%, rgba(18, 18, 18, 0.95) 100%);
-            box-shadow: 0 18px 36px rgba(0, 0, 0, 0.18);
-        }
-
-        #watchtube-row * {
+        .watchtube-item * {
             box-sizing: border-box;
         }
 
-        #watchtube-row .watchtube-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            margin-bottom: 14px;
-            flex-wrap: wrap;
+        .watchtube-grid,
+        .watchtube-item {
+            position: relative;
         }
 
-        #watchtube-row .watchtube-title-wrap {
+        .watchtube-grid {
+            padding-top: 54px;
+        }
+
+        .watchtube-card {
             display: grid;
-            gap: 4px;
-        }
-
-        #watchtube-row .watchtube-badge {
-            color: #ff8a7b;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-        }
-
-        #watchtube-row .watchtube-title {
-            margin: 0;
-            color: #fff;
-            font-size: 22px;
-            line-height: 1.2;
-            font-weight: 700;
-        }
-
-        #watchtube-row .watchtube-subtitle {
-            color: rgba(255, 255, 255, 0.68);
-            font-size: 13px;
-            line-height: 1.45;
-        }
-
-        #watchtube-row .watchtube-actions {
-            display: flex;
-            align-items: center;
             gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        #watchtube-row .watchtube-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 36px;
-            padding: 0 14px;
-            border-radius: 999px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.06);
-            color: #fff;
-            cursor: pointer;
-            text-decoration: none;
-            font: 500 13px/1 Roboto, Arial, sans-serif;
-            transition: transform 160ms ease, background-color 160ms ease;
-        }
-
-        #watchtube-row .watchtube-btn:hover {
-            transform: translateY(-1px);
-            background: rgba(255, 255, 255, 0.12);
-        }
-
-        #watchtube-row .watchtube-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-        }
-
-        #watchtube-row .watchtube-card {
-            display: block;
             color: inherit;
             text-decoration: none;
-            border-radius: 16px;
+        }
+
+        .watchtube-thumb-wrap {
+            position: relative;
             overflow: hidden;
-            background: rgba(255, 255, 255, 0.04);
-            transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
-        }
-
-        #watchtube-row .watchtube-card:hover {
-            transform: translateY(-2px);
-            background: rgba(255, 255, 255, 0.07);
-            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        #watchtube-row .watchtube-thumb {
-            display: block;
             width: 100%;
             aspect-ratio: 16 / 9;
+            border-radius: 12px;
+            background: var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+        }
+
+        .watchtube-thumb {
+            display: block;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-            background: #1b1b1b;
+            transition: transform 180ms ease;
         }
 
-        #watchtube-row .watchtube-card-body {
-            padding: 12px 12px 14px;
+        .watchtube-card:hover .watchtube-thumb {
+            transform: scale(1.02);
         }
 
-        #watchtube-row .watchtube-card-title {
+        .watchtube-meta {
+            display: grid;
+            grid-template-columns: 36px minmax(0, 1fr);
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .watchtube-avatar {
+            display: grid;
+            place-items: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #ff0033;
             color: #fff;
-            font-size: 14px;
-            line-height: 1.4;
-            font-weight: 500;
+            font: 700 15px/1 Roboto, Arial, sans-serif;
         }
 
-        #watchtube-row .watchtube-card-channel {
-            margin-top: 6px;
-            color: rgba(255, 255, 255, 0.65);
-            font-size: 12px;
-            line-height: 1.35;
+        .watchtube-copy {
+            min-width: 0;
+        }
+
+        .watchtube-card-title {
+            display: -webkit-box;
+            overflow: hidden;
+            color: var(--yt-spec-text-primary, #0f0f0f);
+            font-family: Roboto, Arial, sans-serif;
+            font-size: 1.6rem;
+            font-weight: 500;
+            line-height: 2.2rem;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+        }
+
+        .watchtube-card-channel,
+        .watchtube-card-source {
+            overflow: hidden;
+            color: var(--yt-spec-text-secondary, #606060);
+            font-family: Roboto, Arial, sans-serif;
+            font-size: 1.4rem;
+            line-height: 2rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .watchtube-card-channel {
+            margin-top: 4px;
+        }
+
+        .watchtube-shuffle {
+            position: absolute;
+            top: 6px;
+            right: 16px;
+            z-index: 2;
+            min-height: 42px;
+            padding: 0 18px;
+            border: 1px solid #ff0033;
+            border-radius: 21px;
+            background: #ff0033;
+            color: #fff;
+            cursor: pointer;
+            font: 700 14px/1 Roboto, Arial, sans-serif;
+            opacity: 1;
+        }
+
+        .watchtube-shuffle:hover,
+        .watchtube-shuffle:active,
+        .watchtube-shuffle:focus-visible {
+            background: #606060;
+            border-color: #606060;
         }
     `;
 }
@@ -304,11 +294,11 @@ function applyCategoryVisibility(hideCategories) {
     }
 }
 
-function findHomeGrid() {
+function findHomeContents() {
     return (
-        document.querySelector("ytd-rich-grid-renderer") ||
-        document.querySelector("ytd-two-column-browse-results-renderer #primary") ||
-        document.querySelector("#contents")
+        document.querySelector("ytd-rich-grid-renderer #contents") ||
+        document.querySelector("ytd-two-column-browse-results-renderer #contents") ||
+        document.querySelector("ytd-browse[page-subtype='home'] #contents")
     );
 }
 
@@ -393,57 +383,61 @@ function extractInitialData(html) {
     throw new Error("ytInitialData not found in Watch Later page");
 }
 
-function renderWatchLaterRow(grid, videos) {
-    const existingRow = document.getElementById("watchtube-row");
-    const existingGrid = existingRow?.parentElement;
+function renderWatchLaterItems(grid, videos) {
+    const existingItems = [...document.querySelectorAll(".watchtube-item")];
+    const existingButton = document.querySelector(".watchtube-shuffle");
+    const existingGrid = existingItems[0]?.parentElement;
     const signature = buildRenderSignature(videos);
 
-    if (existingRow && existingGrid === grid && lastRenderedSignature === signature) {
+    if (existingItems.length && existingButton && existingGrid === grid && lastRenderedSignature === signature) {
         return;
     }
 
-    removeExistingRow();
+    injectedVersion += 1;
+    replaceWatchLaterItems(grid, videos);
 
-    const version = ++injectedVersion;
-    const picks = shuffle([...videos]).slice(0, 6);
-    const wrap = document.createElement("section");
-    wrap.id = "watchtube-row";
-
-    wrap.innerHTML = `
-        <div class="watchtube-header">
-            <div class="watchtube-title-wrap">
-                <span class="watchtube-badge">WatchTube</span>
-                <h2 class="watchtube-title">Watch Later</h2>
-                <span class="watchtube-subtitle">Быстрый доступ к сохранённым видео прямо на главной странице.</span>
-            </div>
-            <div class="watchtube-actions">
-                <a class="watchtube-btn" href="${WATCH_LATER_URL}" target="_blank" rel="noreferrer">Открыть плейлист</a>
-                <button class="watchtube-btn" type="button">Перемешать</button>
-            </div>
-        </div>
-        <div class="watchtube-row"></div>
-    `;
-
-    const row = wrap.querySelector(".watchtube-row");
-    const shuffleButton = wrap.querySelector("button");
-
-    if (!row || !shuffleButton) {
-        return;
-    }
-
-    fillRow(row, picks);
     lastRenderedSignature = signature;
-
-    shuffleButton.addEventListener("click", () => {
-        if (version !== injectedVersion) return;
-        fillRow(row, shuffle([...videos]).slice(0, 6));
-    });
-
-    grid.prepend(wrap);
 }
 
-function fillRow(row, videos) {
-    row.replaceChildren(...videos.map(createCard));
+function replaceWatchLaterItems(grid, videos) {
+    removeExistingWatchTubeNodes();
+    grid.classList.add("watchtube-grid");
+
+    const picks = shuffle([...videos]).slice(0, MAX_FIRST_ROW_VIDEOS);
+    const items = picks.map(createGridItem);
+    const firstFeedItem = findFirstFeedItem(grid);
+    grid.insertBefore(createShuffleButton(grid, videos), firstFeedItem);
+
+    for (const item of items) {
+        grid.insertBefore(item, firstFeedItem);
+    }
+}
+
+function findFirstFeedItem(grid) {
+    return [...grid.children].find((child) => !isWatchTubeNode(child)) || null;
+}
+
+function createGridItem(video) {
+    const item = document.createElement("ytd-rich-item-renderer");
+    item.className = "watchtube-item";
+    item.append(createCard(video));
+
+    return item;
+}
+
+function createShuffleButton(grid, videos) {
+    const button = document.createElement("button");
+    button.className = "watchtube-shuffle";
+    button.type = "button";
+    button.textContent = "Shuffle ↻";
+    button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        injectedVersion += 1;
+        replaceWatchLaterItems(grid, videos);
+    });
+
+    return button;
 }
 
 function createCard(video) {
@@ -454,23 +448,48 @@ function createCard(video) {
     card.rel = "noreferrer";
 
     card.innerHTML = `
-        <img class="watchtube-thumb" src="${escapeHtml(video.thumbnail)}" alt="">
-        <div class="watchtube-card-body">
-            <div class="watchtube-card-title">${escapeHtml(video.title)}</div>
-            <div class="watchtube-card-channel">${escapeHtml(video.channel || "YouTube")}</div>
+        <div class="watchtube-thumb-wrap">
+            <img class="watchtube-thumb" src="${escapeHtml(video.thumbnail)}" alt="">
+        </div>
+        <div class="watchtube-meta">
+            <div class="watchtube-avatar">W</div>
+            <div class="watchtube-copy">
+                <div class="watchtube-card-title">${escapeHtml(video.title)}</div>
+                <div class="watchtube-card-channel">${escapeHtml(video.channel || "YouTube")}</div>
+                <div class="watchtube-card-source">Watch Later</div>
+            </div>
         </div>
     `;
 
     return card;
 }
 
-function removeExistingRow() {
-    document.getElementById("watchtube-row")?.remove();
+function removeExistingItems() {
+    removeExistingWatchTubeNodes();
+}
+
+function removeExistingWatchTubeNodes() {
+    for (const item of document.querySelectorAll(".watchtube-item")) {
+        item.remove();
+    }
+
+    for (const button of document.querySelectorAll(".watchtube-shuffle")) {
+        button.remove();
+    }
+
+    for (const grid of document.querySelectorAll(".watchtube-grid")) {
+        grid.classList.remove("watchtube-grid");
+    }
+
+}
+
+function isWatchTubeNode(node) {
+    return node.classList.contains("watchtube-item") || node.classList.contains("watchtube-shuffle");
 }
 
 function buildRenderSignature(videos) {
     return videos
-        .slice(0, 12)
+        .slice(0, MAX_FIRST_ROW_VIDEOS)
         .map((video) => video.url)
         .join("|");
 }
@@ -495,11 +514,11 @@ function containsRelevantMutation(nodes) {
             continue;
         }
 
-        if (node.id === "watchtube-row" || node.id === STYLE_ID) {
+        if (node.id === STYLE_ID) {
             continue;
         }
 
-        if (node.closest("#watchtube-row")) {
+        if (node.classList.contains("watchtube-item") || node.closest(".watchtube-item")) {
             continue;
         }
 
