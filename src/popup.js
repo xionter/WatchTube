@@ -2,8 +2,7 @@
 
 const DEFAULT_SETTINGS = {
     showWatchLater: true,
-    hideShorts: false,
-    hideCategories: false
+    hideShorts: false
 };
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
@@ -30,7 +29,6 @@ async function init() {
 
     controls.showWatchLater.addEventListener("change", handleToggleChange);
     controls.hideShorts.addEventListener("change", handleToggleChange);
-    controls.hideCategories.addEventListener("change", handleToggleChange);
 }
 
 function assertUi() {
@@ -87,10 +85,6 @@ function renderStatus(settings) {
     if (settings.hideShorts) {
         enabledFeatures.push("скрытие Shorts");
     }
-    if (settings.hideCategories) {
-        enabledFeatures.push("скрытие категорий");
-    }
-
     status.textContent = enabledFeatures.length
         ? `Активно: ${enabledFeatures.join(", ")}. Изменения применяются автоматически на открытых вкладках YouTube.`
         : "Все дополнительные функции отключены. YouTube будет выглядеть почти как обычно.";

@@ -2,8 +2,7 @@
 
 const DEFAULT_SETTINGS = {
     showWatchLater: true,
-    hideShorts: false,
-    hideCategories: false
+    hideShorts: false
 };
 
 const WATCH_LATER_URL = "https://www.youtube.com/playlist?list=WL";
@@ -19,11 +18,6 @@ const SHORTS_SHELF_SELECTORS = [
     "ytd-item-section-renderer ytd-reel-shelf-renderer"
 ];
 const SHORTS_LINK_SELECTORS = 'a[href^="/shorts"], a[href="https://www.youtube.com/shorts"]';
-const CATEGORY_SELECTORS = [
-    "ytd-feed-filter-chip-bar-renderer",
-    "ytd-rich-grid-renderer #chips-wrapper",
-    "#chips-wrapper"
-];
 const HOME_CONTENT_SELECTORS = [
     "ytd-rich-grid-renderer #contents",
     "ytd-two-column-browse-results-renderer #contents",
@@ -104,7 +98,6 @@ async function refreshPage() {
 
         ensureStyleElement();
         applyShortsVisibility(settings.hideShorts);
-        applyCategoryVisibility(settings.hideCategories);
 
         if (!settings.showWatchLater || !isHomePage()) {
             removeExistingItems();
@@ -287,14 +280,6 @@ function applyShortsVisibility(hideShorts) {
 
     for (const link of document.querySelectorAll(SHORTS_LINK_SELECTORS)) {
         findShortsContainer(link).style.display = display;
-    }
-}
-
-function applyCategoryVisibility(hideCategories) {
-    const display = hideCategories ? "none" : "";
-
-    for (const node of document.querySelectorAll(CATEGORY_SELECTORS.join(", "))) {
-        node.style.display = display;
     }
 }
 
