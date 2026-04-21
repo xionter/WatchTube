@@ -12,11 +12,34 @@ const CACHE_KEY = "watchTubeCache";
 const STYLE_ID = "watchtube-style";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const MAX_FIRST_ROW_VIDEOS = 3;
+const SHORTS_SHELF_SELECTORS = [
+    "ytd-rich-shelf-renderer[is-shorts]",
+    "ytd-reel-shelf-renderer",
+    "ytd-rich-section-renderer ytd-reel-shelf-renderer",
+    "ytd-item-section-renderer ytd-reel-shelf-renderer"
+];
+const SHORTS_LINK_SELECTORS = 'a[href^="/shorts"], a[href="https://www.youtube.com/shorts"]';
+const CATEGORY_SELECTORS = [
+    "ytd-feed-filter-chip-bar-renderer",
+    "ytd-rich-grid-renderer #chips-wrapper",
+    "#chips-wrapper"
+];
+const HOME_CONTENT_SELECTORS = [
+    "ytd-rich-grid-renderer #contents",
+    "ytd-two-column-browse-results-renderer #contents",
+    "ytd-browse[page-subtype='home'] #contents"
+];
+const GUIDE_CONTAINER_SELECTORS = [
+    "ytd-guide-entry-renderer",
+    "ytd-mini-guide-entry-renderer",
+    "ytd-rich-item-renderer",
+    "ytd-video-renderer",
+    "ytd-grid-video-renderer"
+];
 
 let domObserverStarted = false;
 let refreshScheduled = false;
 let refreshInFlight = null;
-let injectedVersion = 0;
 let lastPageUrl = location.href;
 let lastRenderedSignature = "";
 
@@ -256,50 +279,34 @@ function buildWatchTubeCss() {
 }
 
 function applyShortsVisibility(hideShorts) {
-    const shelfSelectors = [
-        "ytd-rich-shelf-renderer[is-shorts]",
-        "ytd-reel-shelf-renderer",
-        "ytd-rich-section-renderer ytd-reel-shelf-renderer",
-        "ytd-item-section-renderer ytd-reel-shelf-renderer"
-    ];
+    const display = hideShorts ? "none" : "";
 
-    const shelves = document.querySelectorAll(shelfSelectors.join(", "));
-    for (const shelf of shelves) {
-        shelf.style.display = hideShorts ? "none" : "";
+    for (const shelf of document.querySelectorAll(SHORTS_SHELF_SELECTORS.join(", "))) {
+        shelf.style.display = display;
     }
 
-    const shortLinks = document.querySelectorAll('a[href^="/shorts"], a[href="https://www.youtube.com/shorts"]');
-    for (const link of shortLinks) {
-        const container =
-            link.closest("ytd-guide-entry-renderer") ||
-            link.closest("ytd-mini-guide-entry-renderer") ||
-            link.closest("ytd-rich-item-renderer") ||
-            link.closest("ytd-video-renderer") ||
-            link.closest("ytd-grid-video-renderer") ||
-            link;
-
-        container.style.display = hideShorts ? "none" : "";
+    for (const link of document.querySelectorAll(SHORTS_LINK_SELECTORS)) {
+        findShortsContainer(link).style.display = display;
     }
 }
 
 function applyCategoryVisibility(hideCategories) {
-    const selectors = [
-        "ytd-feed-filter-chip-bar-renderer",
-        "ytd-rich-grid-renderer #chips-wrapper",
-        "#chips-wrapper"
-    ];
+    const display = hideCategories ? "none" : "";
 
-    for (const node of document.querySelectorAll(selectors.join(", "))) {
-        node.style.display = hideCategories ? "none" : "";
+    for (const node of document.querySelectorAll(CATEGORY_SELECTORS.join(", "))) {
+        node.style.display = display;
     }
 }
 
 function findHomeContents() {
-    return (
-        document.querySelector("ytd-rich-grid-renderer #contents") ||
-        document.querySelector("ytd-two-column-browse-results-renderer #contents") ||
-        document.querySelector("ytd-browse[page-subtype='home'] #contents")
-    );
+    for (const selector of HOME_CONTENT_SELECTORS) {
+        const grid = document.querySelector(selector);
+        if (grid) {
+            return grid;
+        }
+    }
+
+    return null;
 }
 
 async function getWatchLaterVideos() {
@@ -307,7 +314,7 @@ async function getWatchLaterVideos() {
     const stored = await chrome.storage.local.get(CACHE_KEY);
     const cache = stored[CACHE_KEY];
 
-    if (cache?.items?.length && now - cache.updatedAt < CACHE_TTL_MS) {
+    if (cache && Array.isArray(cache.items) && cache.items.length && now - cache.updatedAt < CACHE_TTL_MS) {
         return cache.items;
     }
 
@@ -322,7 +329,7 @@ async function getWatchLaterVideos() {
         return items;
     } catch (error) {
         console.warn("WatchTube: failed to refresh Watch Later", error);
-        return cache?.items || [];
+        return cache && Array.isArray(cache.items) ? cache.items : [];
     }
 }
 
@@ -337,29 +344,30 @@ async function fetchWatchLater() {
 
     const html = await response.text();
     const json = extractInitialData(html);
-    const contents =
-        json.contents
-            ?.twoColumnBrowseResultsRenderer
-            ?.tabs?.[0]
-            ?.tabRenderer
-            ?.content
-            ?.sectionListRenderer
-            ?.contents?.[0]
-            ?.itemSectionRenderer
-            ?.contents?.[0]
-            ?.playlistVideoListRenderer
-            ?.contents || [];
+    const tabs = getValue(json, ["contents", "twoColumnBrowseResultsRenderer", "tabs"], []);
+    const contents = getValue(tabs[0], [
+        "tabRenderer",
+        "content",
+        "sectionListRenderer",
+        "contents",
+        0,
+        "itemSectionRenderer",
+        "contents",
+        0,
+        "playlistVideoListRenderer",
+        "contents"
+    ], []);
 
     const videos = [];
 
     for (const item of contents) {
         const video = item.playlistVideoRenderer;
-        if (!video?.videoId) continue;
+        if (!video || !video.videoId) continue;
 
         videos.push({
-            title: video.title?.runs?.[0]?.text || "Без названия",
+            title: getValue(video, ["title", "runs", 0, "text"], "Без названия"),
             url: `https://www.youtube.com/watch?v=${video.videoId}`,
-            channel: video.shortBylineText?.runs?.[0]?.text || "",
+            channel: getValue(video, ["shortBylineText", "runs", 0, "text"], ""),
             thumbnail: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`
         });
     }
@@ -384,16 +392,15 @@ function extractInitialData(html) {
 }
 
 function renderWatchLaterItems(grid, videos) {
-    const existingItems = [...document.querySelectorAll(".watchtube-item")];
+    const existingItems = Array.from(document.querySelectorAll(".watchtube-item"));
     const existingButton = document.querySelector(".watchtube-shuffle");
-    const existingGrid = existingItems[0]?.parentElement;
+    const existingGrid = existingItems.length ? existingItems[0].parentElement : null;
     const signature = buildRenderSignature(videos);
 
     if (existingItems.length && existingButton && existingGrid === grid && lastRenderedSignature === signature) {
         return;
     }
 
-    injectedVersion += 1;
     replaceWatchLaterItems(grid, videos);
 
     lastRenderedSignature = signature;
@@ -433,7 +440,6 @@ function createShuffleButton(grid, videos) {
     button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        injectedVersion += 1;
         replaceWatchLaterItems(grid, videos);
     });
 
@@ -480,7 +486,6 @@ function removeExistingWatchTubeNodes() {
     for (const grid of document.querySelectorAll(".watchtube-grid")) {
         grid.classList.remove("watchtube-grid");
     }
-
 }
 
 function isWatchTubeNode(node) {
@@ -496,11 +501,7 @@ function buildRenderSignature(videos) {
 
 function shouldReactToMutations(mutations) {
     for (const mutation of mutations) {
-        if (containsRelevantMutation(mutation.addedNodes)) {
-            return true;
-        }
-
-        if (containsRelevantMutation(mutation.removedNodes)) {
+        if (containsRelevantMutation(mutation.addedNodes) || containsRelevantMutation(mutation.removedNodes)) {
             return true;
         }
     }
@@ -543,9 +544,34 @@ function shuffle(arr) {
 
 function escapeHtml(value) {
     return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function findShortsContainer(link) {
+    for (const selector of GUIDE_CONTAINER_SELECTORS) {
+        const container = link.closest(selector);
+        if (container) {
+            return container;
+        }
+    }
+
+    return link;
+}
+
+function getValue(source, path, fallback) {
+    let value = source;
+
+    for (const part of path) {
+        if (value == null || value[part] == null) {
+            return fallback;
+        }
+
+        value = value[part];
+    }
+
+    return value;
 }

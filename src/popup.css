@@ -105,7 +105,6 @@ body {
 }
 
 .toggle-state,
-.panel-subtitle,
 .feature-list {
     color: var(--popup-text-secondary);
     font-size: 12px;
@@ -165,10 +164,6 @@ body {
 
 .panel-title {
     margin: 0 0 6px;
-}
-
-.panel-subtitle {
-    margin: 0;
 }
 
 .panel-info {

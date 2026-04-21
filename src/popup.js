@@ -6,19 +6,15 @@ const DEFAULT_SETTINGS = {
     hideCategories: false
 };
 
-const controls = {
-    showWatchLater: document.getElementById("showWatchLater"),
-    hideShorts: document.getElementById("hideShorts"),
-    hideCategories: document.getElementById("hideCategories")
-};
-
-const stateLabels = {
-    showWatchLater: document.getElementById("showWatchLaterState"),
-    hideShorts: document.getElementById("hideShortsState"),
-    hideCategories: document.getElementById("hideCategoriesState")
-};
-
+const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
+const controls = {};
+const stateLabels = {};
 const status = document.getElementById("status");
+
+for (const key of SETTING_KEYS) {
+    controls[key] = document.getElementById(key);
+    stateLabels[key] = document.getElementById(`${key}State`);
+}
 
 init().catch((error) => {
     status.textContent = `Не удалось загрузить настройки: ${error.message}`;
@@ -38,8 +34,8 @@ async function init() {
 }
 
 function assertUi() {
-    for (const control of Object.values(controls)) {
-        if (!control) {
+    for (const key of SETTING_KEYS) {
+        if (!controls[key] || !stateLabels[key]) {
             throw new Error("Popup control is missing");
         }
     }
@@ -58,13 +54,10 @@ async function readSettings() {
 }
 
 function syncControls(settings) {
-    controls.showWatchLater.checked = settings.showWatchLater;
-    controls.hideShorts.checked = settings.hideShorts;
-    controls.hideCategories.checked = settings.hideCategories;
-
-    stateLabels.showWatchLater.textContent = settings.showWatchLater ? "Включено" : "Выключено";
-    stateLabels.hideShorts.textContent = settings.hideShorts ? "Включено" : "Выключено";
-    stateLabels.hideCategories.textContent = settings.hideCategories ? "Включено" : "Выключено";
+    for (const key of SETTING_KEYS) {
+        controls[key].checked = settings[key];
+        stateLabels[key].textContent = settings[key] ? "Включено" : "Выключено";
+    }
 }
 
 async function handleToggleChange() {
@@ -76,11 +69,13 @@ async function handleToggleChange() {
 }
 
 function collectSettings() {
-    return {
-        showWatchLater: controls.showWatchLater.checked,
-        hideShorts: controls.hideShorts.checked,
-        hideCategories: controls.hideCategories.checked
-    };
+    const settings = {};
+
+    for (const key of SETTING_KEYS) {
+        settings[key] = controls[key].checked;
+    }
+
+    return settings;
 }
 
 function renderStatus(settings) {
