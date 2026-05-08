@@ -11,7 +11,7 @@ const SETTINGS_KEY = "watchTubeSettings";
 const CACHE_KEY = "watchTubeCache";
 const STYLE_ID = "watchtube-style";
 
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const MAX_FIRST_ROW_VIDEOS = 3;
 const CHANNEL_AVATAR_PROMISES = new Map();
@@ -297,6 +297,7 @@ function buildWatchTubeCss() {
         }
 
         .watchtube-card-channel,
+        .watchtube-card-stats,
         .watchtube-card-source {
             overflow: hidden;
 
@@ -318,6 +319,10 @@ function buildWatchTubeCss() {
             margin-top: 4px;
         }
 
+        .watchtube-card-source {
+            margin-top: 2px;
+        }
+
         .watchtube-shuffle {
             position: absolute;
 
@@ -325,6 +330,11 @@ function buildWatchTubeCss() {
             right: 16px;
 
             z-index: 2;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
 
             min-height: 42px;
 
@@ -337,6 +347,7 @@ function buildWatchTubeCss() {
             color: white;
 
             cursor: pointer;
+            text-decoration: none;
 
             font:
                 700
@@ -362,6 +373,122 @@ function buildWatchTubeCss() {
 
         .watchtube-shuffle:disabled {
             cursor: default;
+        }
+
+        .watchtube-links {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+
+            width: 100%;
+
+            margin-top: -18px;
+
+            padding: 0 0 30px;
+
+            grid-column: 1 / -1;
+        }
+
+        .watchtube-link {
+            position: relative;
+
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+
+            min-height: 40px;
+
+            padding: 0 16px;
+
+            border: 0;
+            border-radius: 999px;
+
+            overflow: hidden;
+
+            background: var(--yt-spec-badge-chip-background, #272727);
+            color: #f1f1f1 !important;
+
+            font:
+                500
+                15px/1.35
+                Roboto,
+                Arial,
+                sans-serif;
+
+            text-decoration: none;
+
+            transition:
+                background 160ms ease,
+                color 160ms ease;
+        }
+
+        .watchtube-link:hover {
+            background: var(--yt-spec-mono-tonal-hover, #3f3f3f);
+            color: #ffffff !important;
+            text-decoration: none;
+        }
+
+        .watchtube-link:active {
+            background: var(--yt-spec-mono-tonal-active, #535353);
+        }
+
+        .watchtube-link-content {
+            position: relative;
+            z-index: 1;
+
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .watchtube-link yt-touch-feedback-shape {
+            position: absolute;
+            inset: 0;
+
+            pointer-events: none;
+        }
+
+        .watchtube-action-icon,
+        .watchtube-link-icon {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .watchtube-link-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            width: 18px;
+            height: 18px;
+
+            color: #ffffff;
+
+            font-weight: 800;
+        }
+
+        .watchtube-play-icon::before {
+            content: "";
+
+            width: 0;
+            height: 0;
+
+            margin-left: 2px;
+
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            border-left: 9px solid #ffffff;
+        }
+
+        @media (max-width: 720px) {
+            .watchtube-grid {
+                padding-top: 54px;
+            }
+
+            .watchtube-links {
+                overflow-x: auto;
+                padding-right: 16px;
+            }
         }
     `;
 }
@@ -488,6 +615,8 @@ async function fetchWatchLater() {
 
       channelUrl: getChannelUrl(video),
 
+      metadata: getVideoMetadata(video),
+
       thumbnail: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
     });
   }
@@ -537,6 +666,7 @@ function renderWatchLaterItems(grid, videos) {
   );
 
   const existingButton = document.querySelector(".watchtube-shuffle");
+  const existingLinks = document.querySelector(".watchtube-links");
 
   const existingGrid = existingItems.length
     ? existingItems[0].parentElement
@@ -547,6 +677,7 @@ function renderWatchLaterItems(grid, videos) {
   if (
     existingItems.length &&
     existingButton &&
+    existingLinks &&
     existingGrid === grid &&
     lastRenderedSignature === signature
   ) {
@@ -574,6 +705,8 @@ function replaceWatchLaterItems(grid, videos) {
   for (const item of items) {
     grid.insertBefore(item, firstFeedItem);
   }
+
+  grid.insertBefore(createWatchLaterLinks(videos), firstFeedItem);
 }
 
 function findFirstFeedItem(grid) {
@@ -590,6 +723,89 @@ function createGridItem(video) {
   return item;
 }
 
+function createWatchLaterLinks(videos) {
+  const links = document.createElement("div");
+
+  links.className = "watchtube-links";
+
+  links.append(
+    createPlayAllLink(videos),
+    createWatchLaterPageLink(),
+  );
+
+  return links;
+}
+
+function createPlayAllLink(videos) {
+  const firstVideo = videos[0];
+
+  return createWatchTubeLink({
+    href: firstVideo ? `${firstVideo.url}&list=WL` : WATCH_LATER_URL,
+    icon: "",
+    iconClassName: "watchtube-play-icon",
+    label: "Play all",
+  });
+}
+
+function createWatchLaterPageLink() {
+  return createWatchTubeLink({
+    href: WATCH_LATER_URL,
+    icon: "",
+    iconClassName: "",
+    label: "Watch Later",
+  });
+}
+
+function createWatchTubeLink({ href, icon, iconClassName, label }) {
+  const link = document.createElement("a");
+
+  link.className = "watchtube-link";
+  link.href = href;
+  link.rel = "noreferrer";
+
+  const content = document.createElement("span");
+
+  content.className = "watchtube-link-content";
+
+  const iconElement = createIcon(
+    `watchtube-link-icon${iconClassName ? ` ${iconClassName}` : ""}`,
+    icon,
+  );
+
+  if (icon || iconClassName) {
+    content.append(iconElement);
+  }
+
+  content.append(label);
+
+  link.append(content, createTouchFeedbackShape());
+
+  return link;
+}
+
+function createTouchFeedbackShape() {
+  const shape = document.createElement("yt-touch-feedback-shape");
+  const stroke = document.createElement("div");
+  const fill = document.createElement("div");
+
+  stroke.className = "ytSpecTouchFeedbackShape";
+  fill.className = "ytSpecTouchFeedbackShapeFill";
+
+  shape.append(stroke, fill);
+
+  return shape;
+}
+
+function createIcon(className, icon) {
+  const span = document.createElement("span");
+
+  span.className = className;
+  span.setAttribute("aria-hidden", "true");
+  span.textContent = icon;
+
+  return span;
+}
+
 function createShuffleButton(grid, videos) {
   const button = document.createElement("button");
 
@@ -597,7 +813,7 @@ function createShuffleButton(grid, videos) {
 
   button.type = "button";
 
-  button.textContent = "Shuffle ↻";
+  button.append(createIcon("watchtube-action-icon", "↻"), "Shuffle");
 
   button.addEventListener("click", async (event) => {
     event.preventDefault();
@@ -667,6 +883,8 @@ function createCard(video) {
                     ${escapeHtml(video.channel)}
                 </div>
 
+                ${createVideoMetadataMarkup(video)}
+
                 <div class="watchtube-card-source">
                     Watch Later
                 </div>
@@ -680,6 +898,18 @@ function createCard(video) {
   void loadMissingChannelAvatar(card, video);
 
   return card;
+}
+
+function createVideoMetadataMarkup(video) {
+  if (!video.metadata) {
+    return "";
+  }
+
+  return `
+                <div class="watchtube-card-stats">
+                    ${escapeHtml(video.metadata)}
+                </div>
+    `;
 }
 
 function findVisibleChannelAvatar(video) {
@@ -970,6 +1200,47 @@ function getChannelUrl(video) {
   return normalizeYouTubeUrl(path);
 }
 
+function getVideoMetadata(video) {
+  const runs = getValue(video, ["videoInfo", "runs"], []);
+
+  if (Array.isArray(runs)) {
+    const metadata = runs
+      .map((run) => run?.text || "")
+      .join("")
+      .replace(/\s*•\s*/g, " • ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (metadata) {
+      return metadata;
+    }
+  }
+
+  const viewCount = getTextFromRuns(video.viewCountText);
+  const publishedAt = getTextFromRuns(video.publishedTimeText);
+
+  return [viewCount, publishedAt].filter(Boolean).join(" • ");
+}
+
+function getTextFromRuns(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value.simpleText === "string") {
+    return value.simpleText;
+  }
+
+  if (!Array.isArray(value.runs)) {
+    return "";
+  }
+
+  return value.runs
+    .map((run) => run?.text || "")
+    .join("")
+    .trim();
+}
+
 function normalizeYouTubeUrl(path) {
   if (!path) {
     return "";
@@ -1003,6 +1274,10 @@ function removeExistingWatchTubeNodes() {
     button.remove();
   }
 
+  for (const links of document.querySelectorAll(".watchtube-links")) {
+    links.remove();
+  }
+
   for (const grid of document.querySelectorAll(".watchtube-grid")) {
     grid.classList.remove("watchtube-grid");
   }
@@ -1011,7 +1286,8 @@ function removeExistingWatchTubeNodes() {
 function isWatchTubeNode(node) {
   return (
     node.classList.contains("watchtube-item") ||
-    node.classList.contains("watchtube-shuffle")
+    node.classList.contains("watchtube-shuffle") ||
+    node.classList.contains("watchtube-links")
   );
 }
 
@@ -1047,7 +1323,11 @@ function containsRelevantMutation(nodes) {
 
     if (
       node.classList.contains("watchtube-item") ||
-      node.closest(".watchtube-item")
+      node.classList.contains("watchtube-shuffle") ||
+      node.classList.contains("watchtube-links") ||
+      node.closest(".watchtube-item") ||
+      node.closest(".watchtube-shuffle") ||
+      node.closest(".watchtube-links")
     ) {
       continue;
     }

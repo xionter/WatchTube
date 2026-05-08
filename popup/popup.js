@@ -5,9 +5,11 @@ const DEFAULT_SETTINGS = {
   hideShorts: false,
 };
 
+const WATCH_LATER_URL = "https://www.youtube.com/playlist?list=WL";
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
 const controls = {};
 const stateLabels = {};
+const openWatchLater = document.getElementById("openWatchLater");
 const status = document.getElementById("status");
 
 for (const key of SETTING_KEYS) {
@@ -29,6 +31,7 @@ async function init() {
 
   controls.showWatchLater.addEventListener("change", handleToggleChange);
   controls.hideShorts.addEventListener("change", handleToggleChange);
+  openWatchLater.addEventListener("click", handleOpenWatchLater);
 }
 
 function assertUi() {
@@ -38,7 +41,7 @@ function assertUi() {
     }
   }
 
-  if (!status) {
+  if (!openWatchLater || !status) {
     throw new Error("Popup status element is missing");
   }
 }
@@ -89,4 +92,10 @@ function renderStatus(settings) {
   status.textContent = enabledFeatures.length
     ? `Активно: ${enabledFeatures.join(", ")}. Изменения применяются автоматически на открытых вкладках YouTube.`
     : "Все дополнительные функции отключены. YouTube будет выглядеть почти как обычно.";
+}
+
+async function handleOpenWatchLater() {
+  await chrome.tabs.create({
+    url: WATCH_LATER_URL,
+  });
 }

@@ -88,6 +88,44 @@ body {
   gap: 10px;
 }
 
+.quick-actions {
+  margin-top: 12px;
+}
+
+.primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  min-height: 42px;
+
+  padding: 0 16px;
+
+  border: 0;
+  border-radius: 999px;
+
+  background: var(--popup-track-active);
+  color: #fff;
+
+  cursor: pointer;
+
+  font: 700 13px/1 "Segoe UI", Roboto, Arial, sans-serif;
+
+  transition:
+    filter 160ms ease,
+    transform 160ms ease;
+}
+
+.primary-action:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.primary-action:active {
+  transform: translateY(0);
+}
+
 .toggle-row,
 .panel {
   border: 1px solid var(--popup-border);
