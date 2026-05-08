@@ -1,59 +1,66 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WatchTube</title>
-    <link rel="stylesheet" type="text/css" href="popup.css">
-</head>
-<body>
+    <link rel="stylesheet" type="text/css" href="popup.css" />
+  </head>
+  <body>
     <main class="popup">
-        <section class="popup-card">
-            <div class="popup-head">
-                <p class="popup-badge">WatchTube</p>
-                <h1 class="popup-title">Настройки YouTube</h1>
-                <p class="popup-subtitle">Сохранённые видео встраиваются в главную страницу и выглядят как обычные карточки YouTube.</p>
+      <section class="popup-card">
+        <div class="popup-head">
+          <p class="popup-badge">WatchTube</p>
+          <h1 class="popup-title">Настройки YouTube</h1>
+          <p class="popup-subtitle">
+            Сохранённые видео встраиваются в главную страницу и выглядят как
+            обычные карточки YouTube.
+          </p>
+        </div>
+
+        <div class="settings-group">
+          <label class="toggle-row" for="showWatchLater">
+            <div class="toggle-copy">
+              <span class="toggle-label">Watch Later в первой строке</span>
+              <span id="showWatchLaterState" class="toggle-state"
+                >Включено</span
+              >
             </div>
 
-            <div class="settings-group">
-                <label class="toggle-row" for="showWatchLater">
-                    <div class="toggle-copy">
-                        <span class="toggle-label">Watch Later в первой строке</span>
-                        <span id="showWatchLaterState" class="toggle-state">Включено</span>
-                    </div>
+            <span class="switch">
+              <input id="showWatchLater" type="checkbox" />
+              <span class="slider"></span>
+            </span>
+          </label>
 
-                    <span class="switch">
-                        <input id="showWatchLater" type="checkbox">
-                        <span class="slider"></span>
-                    </span>
-                </label>
-
-                <label class="toggle-row" for="hideShorts">
-                    <div class="toggle-copy">
-                        <span class="toggle-label">Скрывать Shorts</span>
-                        <span id="hideShortsState" class="toggle-state">Выключено</span>
-                    </div>
-
-                    <span class="switch">
-                        <input id="hideShorts" type="checkbox">
-                        <span class="slider"></span>
-                    </span>
-                </label>
+          <label class="toggle-row" for="hideShorts">
+            <div class="toggle-copy">
+              <span class="toggle-label">Скрывать Shorts</span>
+              <span id="hideShortsState" class="toggle-state">Выключено</span>
             </div>
 
-            <section class="panel panel-info">
-                <h2 class="panel-title">Что делает расширение</h2>
-                <ul class="feature-list">
-                    <li>встраивает Watch Later в первую строку ленты</li>
-                    <li>может скрывать Shorts</li>
-                    <li>обновляет открытую вкладку YouTube автоматически</li>
-                </ul>
-            </section>
+            <span class="switch">
+              <input id="hideShorts" type="checkbox" />
+              <span class="slider"></span>
+            </span>
+          </label>
+        </div>
 
-            <p id="status" class="popup-status">Настройки применяются автоматически на открытых вкладках YouTube.</p>
+        <section class="panel panel-info">
+          <h2 class="panel-title">Что делает расширение</h2>
+          <ul class="feature-list">
+            <li>встраивает Watch Later в первую строку ленты</li>
+            <li>может скрывать Shorts</li>
+            <li>обновляет открытую вкладку YouTube автоматически</li>
+          </ul>
         </section>
+
+        <p id="status" class="popup-status">
+          Настройки применяются автоматически на открытых вкладках YouTube.
+        </p>
+      </section>
     </main>
 
     <script src="popup.js"></script>
-</body>
+  </body>
 </html>
