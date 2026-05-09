@@ -32,5 +32,14 @@
             "js": ["content/content.js"],
             "run_at": "document_idle"
         }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "content/main.js",
+                "content/core/*.js"
+            ],
+            "matches": ["https://www.youtube.com/*"]
+        }
     ]
 }
