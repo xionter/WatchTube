@@ -46,7 +46,10 @@
 
                 "content/features/watchLater/api.js",
                 "content/features/watchLater/parser.js",
-                "content/features/watchLater/index.js"
+                "content/features/watchLater/index.js",
+
+                "content/styles/watchtube.css",
+                "content/styles/inject.js"
             ],
             "matches": ["https://www.youtube.com/*"]
         }

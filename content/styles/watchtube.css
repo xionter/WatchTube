@@ -1,0 +1,179 @@
+.watchtube-item * {
+    box-sizing: border-box;
+}
+
+.watchtube-grid,
+.watchtube-item {
+    position: relative;
+}
+
+.watchtube-grid {
+    padding-top: 54px;
+}
+
+.watchtube-card {
+    display: grid;
+    gap: 12px;
+
+    color: #f1f1f1 !important;
+
+    text-decoration: none;
+}
+
+.watchtube-thumb-wrap {
+    position: relative;
+
+    overflow: hidden;
+
+    width: 100%;
+    aspect-ratio: 16 / 9;
+
+    border-radius: 12px;
+
+    background: #222;
+}
+
+.watchtube-thumb {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    transition: transform 180ms ease;
+}
+
+.watchtube-card:hover .watchtube-thumb {
+    transform: scale(1.02);
+}
+
+.watchtube-meta {
+    display: grid;
+
+    grid-template-columns:
+        36px
+        minmax(0, 1fr);
+
+    gap: 12px;
+
+    min-width: 0;
+
+    align-items: start;
+}
+
+.watchtube-avatar {
+    display: grid;
+    place-items: center;
+
+    width: 36px;
+    height: 36px;
+
+    border-radius: 50%;
+
+    object-fit: cover;
+
+    background: #303030;
+    color: #fff;
+
+    flex-shrink: 0;
+
+    font:
+        700
+        15px/1
+        Roboto,
+        Arial,
+        sans-serif;
+}
+
+.watchtube-copy {
+    min-width: 0;
+}
+
+.watchtube-card-title {
+    display: -webkit-box;
+
+    overflow: hidden;
+
+    color: #f1f1f1 !important;
+
+    font-family:
+        Roboto,
+        Arial,
+        sans-serif;
+
+    font-size: 1.6rem;
+    font-weight: 500;
+    line-height: 2.2rem;
+
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.watchtube-card-channel,
+.watchtube-card-source {
+    overflow: hidden;
+
+    color: #aaaaaa !important;
+
+    font-family:
+        Roboto,
+        Arial,
+        sans-serif;
+
+    font-size: 1.4rem;
+    line-height: 2rem;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.watchtube-card-channel {
+    margin-top: 4px;
+}
+
+.watchtube-shuffle {
+    position: absolute;
+
+    top: 6px;
+    right: 16px;
+
+    z-index: 2;
+
+    min-height: 42px;
+
+    padding: 0 18px;
+
+    border: none;
+    border-radius: 999px;
+
+    background: #ff0033;
+    color: white;
+
+    cursor: pointer;
+
+    font:
+        700
+        14px/1
+        Roboto,
+        Arial,
+        sans-serif;
+
+    transition:
+        background 160ms ease,
+        transform 160ms ease,
+        opacity 160ms ease;
+}
+
+.watchtube-shuffle:hover {
+    background: #ff3355;
+    transform: translateY(-1px);
+}
+
+.watchtube-shuffle:active {
+    transform: translateY(0);
+}
+
+.watchtube-shuffle:disabled {
+    cursor: default;
+}
