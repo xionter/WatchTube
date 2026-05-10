@@ -19,7 +19,6 @@ const elements = {
   },
 
   openWatchLaterButton: document.querySelector("#openWatchLater"),
-  statusElement: document.querySelector("#status"),
 };
 
 main().catch(handleError);
@@ -46,7 +45,6 @@ function assertUi() {
     ...Object.values(elements.controls),
     ...Object.values(elements.states),
     elements.openWatchLaterButton,
-    elements.statusElement,
   ];
 
   if (requiredElements.some((element) => !element)) {
@@ -88,10 +86,6 @@ function updateStatus(settings) {
   if (settings.hideShorts) {
     enabledFeatures.push("Shorts hiding");
   }
-
-  elements.statusElement.textContent = enabledFeatures.length
-    ? `Active: ${enabledFeatures.join(", ")}. Changes are automatically applied to open YouTube tabs.`
-    : "All additional features are disabled. YouTube will look almost unchanged.";
 }
 
 async function handleSettingsChange() {
@@ -117,7 +111,4 @@ async function openWatchLaterPlaylist() {
 
 function handleError(error) {
   console.error(error);
-
-  elements.statusElement.textContent =
-    `Could not load settings: ${error.message}`;
 }

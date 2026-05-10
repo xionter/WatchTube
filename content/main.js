@@ -2,9 +2,9 @@
 
 import * as constants from "./core/constants.js";
 import * as youtube from "./core/youtube.js";
+import { ensureStyleElement } from "./styles/inject.js";
 import { applyShortsVisibility } from "./features/shorts/shorts.js";
 import * as watchLater from "./features/watchLater/index.js";
-import { ensureStyleElement } from "./styles/inject.js";
 
 let domObserverStarted = false;
 let refreshScheduled = false;
