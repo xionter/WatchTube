@@ -127,9 +127,6 @@ function createCard(video) {
   card.className = "watchtube-card";
 
   card.href = video.url;
-
-  card.target = "_blank";
-
   card.rel = "noreferrer";
 
   const channelAvatar = avatar.findVisibleChannelAvatar(video);
@@ -176,7 +173,7 @@ function createCard(video) {
   return card;
 }
 
-function isWatchTubeNode(node) {
+export function isWatchTubeNode(node) {
   return (
     node.classList.contains("watchtube-item") ||
     node.closest(".watchtube-item") ||

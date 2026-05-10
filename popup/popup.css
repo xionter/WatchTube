@@ -210,35 +210,3 @@ body {
 .switch input:checked + .slider::before {
   transform: translateX(20px);
 }
-
-.panel {
-  margin-top: 12px;
-  padding: 14px;
-}
-
-.panel-title {
-  margin: 0 0 6px;
-}
-
-.panel-info {
-  margin-top: 12px;
-}
-
-.feature-list {
-  margin: 10px 0 0;
-  padding-left: 18px;
-}
-
-.feature-list li + li {
-  margin-top: 6px;
-}
-
-.popup-status {
-  margin: 12px 0 0;
-  padding: 12px 13px;
-  border-radius: 12px;
-  background: var(--popup-accent-soft);
-  color: var(--popup-text-primary);
-  font-size: 12px;
-  line-height: 1.45;
-}
