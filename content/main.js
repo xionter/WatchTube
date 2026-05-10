@@ -1,7 +1,6 @@
 "use strict";
 
 import * as constants from "./core/constants.js";
-import * as utils from "./core/utils.js";
 import * as youtube from "./core/youtube.js";
 import { applyShortsVisibility } from "./features/shorts/shorts.js";
 import * as watchLater from "./features/watchLater/index.js";
@@ -12,12 +11,11 @@ let refreshScheduled = false;
 let refreshInFlight = null;
 let lastPageUrl = location.href;
 let lastRenderedSignature = "";
-let shuffleLocked = false;
 
 start();
 
 function start() {
-  ensureStyleElement();
+  void ensureStyleElement();
   watchYoutubeDom();
   watchStorageChanges();
   scheduleRefresh();
@@ -86,17 +84,17 @@ async function refreshPage() {
   refreshInFlight = (async () => {
     const settings = await readSettings();
 
-    ensureStyleElement();
+    await ensureStyleElement();
 
     applyShortsVisibility(settings.hideShorts);
 
     if (!settings.showWatchLater || !youtube.isHomePage()) {
-      removeExistingItems();
+      watchLater.render.removeExistingWatchTubeNodes();
       lastRenderedSignature = "";
       return;
     }
 
-    const grid = findHomeContents();
+    const grid = youtube.findHomeContents();
 
     if (!grid) {
       window.setTimeout(scheduleRefresh, 800);
@@ -106,12 +104,12 @@ async function refreshPage() {
     const videos = await getWatchLaterVideos();
 
     if (!videos.length) {
-      removeExistingItems();
+      watchLater.render.removeExistingWatchTubeNodes();
       lastRenderedSignature = "";
       return;
     }
 
-    renderWatchLaterItems(grid, videos);
+    watchLater.render.renderWatchLaterItems(grid, videos);
   })();
 
   try {
@@ -128,18 +126,6 @@ async function readSettings() {
     ...constants.DEFAULT_SETTINGS,
     ...(stored[constants.SETTINGS_KEY] || {}),
   };
-}
-
-function findHomeContents() {
-  for (const selector of youtube.HOME_CONTENT_SELECTORS) {
-    const grid = document.querySelector(selector);
-
-    if (grid) {
-      return grid;
-    }
-  }
-
-  return null;
 }
 
 async function getWatchLaterVideos() {
@@ -176,337 +162,6 @@ async function getWatchLaterVideos() {
 
     return cache && Array.isArray(cache.items) ? cache.items : [];
   }
-}
-
-async function preloadImages(urls) {
-  await Promise.all(
-    urls.map((url) => {
-      return new Promise((resolve) => {
-        if (!url) {
-          resolve();
-          return;
-        }
-
-        const img = new Image();
-
-        img.onload = resolve;
-        img.onerror = resolve;
-
-        img.src = url;
-      });
-    }),
-  );
-}
-
-function renderWatchLaterItems(grid, videos) {
-  const existingItems = Array.from(
-    document.querySelectorAll(".watchtube-item"),
-  );
-
-  const existingButton = document.querySelector(".watchtube-shuffle");
-
-  const existingGrid = existingItems.length
-    ? existingItems[0].parentElement
-    : null;
-
-  const signature = buildRenderSignature(videos);
-
-  if (
-    existingItems.length &&
-    existingButton &&
-    existingGrid === grid &&
-    lastRenderedSignature === signature
-  ) {
-    return;
-  }
-
-  replaceWatchLaterItems(grid, videos);
-
-  lastRenderedSignature = signature;
-}
-
-function replaceWatchLaterItems(grid, videos) {
-  removeExistingWatchTubeNodes();
-
-  grid.classList.add("watchtube-grid");
-
-  const picks = utils.shuffle([...videos]).slice(0, constants.MAX_FIRST_ROW_VIDEOS);
-
-  const items = picks.map(createGridItem);
-
-  const firstFeedItem = findFirstFeedItem(grid);
-
-  grid.insertBefore(createShuffleButton(grid, videos), firstFeedItem);
-
-  for (const item of items) {
-    grid.insertBefore(item, firstFeedItem);
-  }
-}
-
-function findFirstFeedItem(grid) {
-  return [...grid.children].find((child) => !isWatchTubeNode(child)) || null;
-}
-
-function createGridItem(video) {
-  const item = document.createElement("ytd-rich-item-renderer");
-
-  item.className = "watchtube-item";
-
-  item.append(createCard(video));
-
-  return item;
-}
-
-function createShuffleButton(grid, videos) {
-  const button = document.createElement("button");
-
-  button.className = "watchtube-shuffle";
-
-  button.type = "button";
-
-  button.textContent = "Shuffle ↻";
-
-  button.addEventListener("click", async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (shuffleLocked) {
-      return;
-    }
-
-    shuffleLocked = true;
-
-    button.disabled = true;
-    button.style.opacity = "0.7";
-
-    try {
-      replaceWatchLaterItems(grid, videos);
-    } finally {
-      setTimeout(() => {
-        shuffleLocked = false;
-
-        button.disabled = false;
-        button.style.opacity = "1";
-      }, 250);
-    }
-  });
-
-  return button;
-}
-
-function createCard(video) {
-  const card = document.createElement("a");
-
-  card.className = "watchtube-card";
-
-  card.href = video.url;
-
-  card.target = "_blank";
-
-  card.rel = "noreferrer";
-
-  const avatar = findVisibleChannelAvatar(video);
-
-  const avatarMarkup = avatar
-    ? createAvatarImageMarkup(avatar)
-    : createAvatarPlaceholderMarkup(video);
-
-  card.innerHTML = `
-        <div class="watchtube-thumb-wrap">
-            <img
-                class="watchtube-thumb"
-                src="${utils.escapeHtml(video.thumbnail)}"
-                alt=""
-            >
-        </div>
-
-        <div class="watchtube-meta">
-
-            ${avatarMarkup}
-
-            <div class="watchtube-copy">
-
-                <div class="watchtube-card-title">
-                    ${utils.escapeHtml(video.title)}
-                </div>
-
-                <div class="watchtube-card-channel">
-                    ${utils.escapeHtml(video.channel)}
-                </div>
-
-                <div class="watchtube-card-source">
-                    Watch Later
-                </div>
-
-            </div>
-
-        </div>
-    `;
-
-  wireAvatarFallback(card, video);
-  void loadMissingChannelAvatar(card, video);
-
-  return card;
-}
-
-function findVisibleChannelAvatar(video) {
-  const videoId = utils.getVideoId(video.url);
-
-  if (!videoId) {
-    return "";
-  }
-
-  const youtubeCard = Array.from(
-    document.querySelectorAll("ytd-rich-item-renderer"),
-  ).find((item) => {
-    const link = item.querySelector('a[href*="watch?v="]');
-
-    return link && utils.getVideoId(link.href) === videoId;
-  });
-
-  return (
-    youtubeCard?.querySelector("#avatar img[src]")?.src ||
-    youtubeCard?.querySelector("yt-img-shadow img[src]")?.src ||
-    ""
-  );
-}
-
-function createAvatarImageMarkup(src) {
-  return `
-        <img
-            class="watchtube-avatar"
-            src="${utils.escapeHtml(src)}"
-            alt=""
-        >
-    `;
-}
-
-function createAvatarPlaceholderMarkup(video) {
-  return `
-        <div
-            class="watchtube-avatar"
-            aria-hidden="true"
-        >
-            ${utils.escapeHtml(getChannelInitial(video))}
-        </div>
-    `;
-}
-
-function wireAvatarFallback(card, video) {
-  const avatar = card.querySelector(".watchtube-avatar");
-
-  if (!(avatar instanceof HTMLImageElement)) {
-    return;
-  }
-
-  avatar.addEventListener(
-    "error",
-    () => {
-      avatar.replaceWith(createAvatarPlaceholderElement(video));
-    },
-    {
-      once: true,
-    },
-  );
-}
-
-async function loadMissingChannelAvatar(card, video) {
-  const currentAvatar = card.querySelector(".watchtube-avatar");
-
-  if (
-    !currentAvatar ||
-    currentAvatar instanceof HTMLImageElement ||
-    !video.channelUrl
-  ) {
-    return;
-  }
-
-  const avatarUrl = await watchLater.api.getChannelAvatarUrl(video.channelUrl);
-
-  if (!avatarUrl || !card.isConnected || !(await canLoadImage(avatarUrl))) {
-    return;
-  }
-
-  const avatar = document.createElement("img");
-
-  avatar.className = "watchtube-avatar";
-
-  avatar.alt = "";
-  avatar.src = avatarUrl;
-
-  avatar.addEventListener(
-    "error",
-    () => {
-      avatar.replaceWith(createAvatarPlaceholderElement(video));
-    },
-    {
-      once: true,
-    },
-  );
-
-  currentAvatar.replaceWith(avatar);
-}
-
-function createAvatarPlaceholderElement(video) {
-  const placeholder = document.createElement("div");
-
-  placeholder.className = "watchtube-avatar";
-
-  placeholder.setAttribute("aria-hidden", "true");
-
-  placeholder.textContent = getChannelInitial(video);
-
-  return placeholder;
-}
-
-function getChannelInitial(video) {
-  const initial = (video.channel || "YouTube").trim().charAt(0).toUpperCase();
-
-  return initial || "Y";
-}
-
-function canLoadImage(url) {
-  return new Promise((resolve) => {
-    const img = new Image();
-
-    img.onload = () => resolve(true);
-
-    img.onerror = () => resolve(false);
-
-    img.src = url;
-  });
-}
-
-function removeExistingItems() {
-  removeExistingWatchTubeNodes();
-}
-
-function removeExistingWatchTubeNodes() {
-  for (const item of document.querySelectorAll(".watchtube-item")) {
-    item.remove();
-  }
-
-  for (const button of document.querySelectorAll(".watchtube-shuffle")) {
-    button.remove();
-  }
-
-  for (const grid of document.querySelectorAll(".watchtube-grid")) {
-    grid.classList.remove("watchtube-grid");
-  }
-}
-
-function isWatchTubeNode(node) {
-  return (
-    node.classList.contains("watchtube-item") ||
-    node.classList.contains("watchtube-shuffle")
-  );
-}
-
-function buildRenderSignature(videos) {
-  return videos
-    .slice(0, constants.MAX_FIRST_ROW_VIDEOS)
-    .map((video) => video.url)
-    .join("|");
 }
 
 function shouldReactToMutations(mutations) {

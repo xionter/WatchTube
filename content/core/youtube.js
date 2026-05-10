@@ -25,3 +25,15 @@ export const GUIDE_CONTAINER_SELECTORS = [
 export function isHomePage() {
     return location.pathname === "/";
 }
+
+export function findHomeContents() {
+  for (const selector of HOME_CONTENT_SELECTORS) {
+    const grid = document.querySelector(selector);
+
+    if (grid) {
+      return grid;
+    }
+  }
+
+  return null;
+}

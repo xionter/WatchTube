@@ -45,8 +45,10 @@
                 "content/features/shorts/shorts.js",
 
                 "content/features/watchLater/api.js",
-                "content/features/watchLater/parser.js",
+                "content/features/watchLater/avatar.js",
                 "content/features/watchLater/index.js",
+                "content/features/watchLater/parser.js",
+                "content/features/watchLater/render.js",
 
                 "content/styles/watchtube.css",
                 "content/styles/inject.js"
