@@ -1,27 +1,8 @@
 "use strict";
 
-import {
-    DEFAULT_SETTINGS,
-    WATCH_LATER_URL,
-    SETTINGS_KEY,
-    CACHE_KEY,
-    STYLE_ID,
-    CACHE_VERSION,
-    CACHE_TTL_MS,
-    MAX_FIRST_ROW_VIDEOS,
-    SHORTS_SHELF_SELECTORS,
-    SHORTS_LINK_SELECTORS,
-    HOME_CONTENT_SELECTORS,
-    GUIDE_CONTAINER_SELECTORS,
-} from "./core/constants.js";
-
-import {
-    shuffle,
-    escapeHtml,
-    getValue,
-    normalizeYouTubeUrl,
-    getVideoId,
-} from "./core/utils.js";
+import * as constants from "./core/constants.js"
+import * as utils from "./core/utils.js"
+import * as youtube from "./core/youtube.js"
 
 const CHANNEL_AVATAR_PROMISES = new Map();
 
@@ -75,7 +56,7 @@ function watchStorageChanges() {
       return;
     }
 
-    if (!changes[SETTINGS_KEY] && !changes[CACHE_KEY]) {
+    if (!changes[constants.SETTINGS_KEY] && !changes[constants.CACHE_KEY]) {
       return;
     }
 
@@ -108,7 +89,7 @@ async function refreshPage() {
 
     applyShortsVisibility(settings.hideShorts);
 
-    if (!settings.showWatchLater || !isHomePage()) {
+    if (!settings.showWatchLater || !youtube.isHomePage()) {
       removeExistingItems();
       lastRenderedSignature = "";
       return;
@@ -140,20 +121,20 @@ async function refreshPage() {
 }
 
 async function readSettings() {
-  const stored = await chrome.storage.local.get(SETTINGS_KEY);
+  const stored = await chrome.storage.local.get(constants.SETTINGS_KEY);
 
   return {
-    ...DEFAULT_SETTINGS,
-    ...(stored[SETTINGS_KEY] || {}),
+    ...constants.DEFAULT_SETTINGS,
+    ...(stored[constants.SETTINGS_KEY] || {}),
   };
 }
 
 function ensureStyleElement() {
-  let style = document.getElementById(STYLE_ID);
+  let style = document.getElementById(constants.STYLE_ID);
 
   if (!style) {
     style = document.createElement("style");
-    style.id = STYLE_ID;
+    style.id = constants.STYLE_ID;
 
     document.documentElement.appendChild(style);
   }
@@ -355,18 +336,18 @@ function applyShortsVisibility(hideShorts) {
   const display = hideShorts ? "none" : "";
 
   for (const shelf of document.querySelectorAll(
-    SHORTS_SHELF_SELECTORS.join(", "),
+    youtube.SHORTS_SHELF_SELECTORS.join(", "),
   )) {
     shelf.style.display = display;
   }
 
-  for (const link of document.querySelectorAll(SHORTS_LINK_SELECTORS)) {
+  for (const link of document.querySelectorAll(youtube.SHORTS_LINK_SELECTORS)) {
     findShortsContainer(link).style.display = display;
   }
 }
 
 function findHomeContents() {
-  for (const selector of HOME_CONTENT_SELECTORS) {
+  for (const selector of youtube.HOME_CONTENT_SELECTORS) {
     const grid = document.querySelector(selector);
 
     if (grid) {
@@ -380,16 +361,16 @@ function findHomeContents() {
 async function getWatchLaterVideos() {
   const now = Date.now();
 
-  const stored = await chrome.storage.local.get(CACHE_KEY);
+  const stored = await chrome.storage.local.get(constants.CACHE_KEY);
 
-  const cache = stored[CACHE_KEY];
+  const cache = stored[constants.CACHE_KEY];
 
   if (
     cache &&
-    cache.version === CACHE_VERSION &&
+    cache.version === constants.CACHE_VERSION &&
     Array.isArray(cache.items) &&
     cache.items.length &&
-    now - cache.updatedAt < CACHE_TTL_MS
+    now - cache.updatedAt < constants.CACHE_TTL_MS
   ) {
     return cache.items;
   }
@@ -398,8 +379,8 @@ async function getWatchLaterVideos() {
     const items = await fetchWatchLater();
 
     await chrome.storage.local.set({
-      [CACHE_KEY]: {
-        version: CACHE_VERSION,
+      [constants.CACHE_KEY]: {
+        version: constants.CACHE_VERSION,
         items,
         updatedAt: now,
       },
@@ -414,7 +395,7 @@ async function getWatchLaterVideos() {
 }
 
 async function fetchWatchLater() {
-  const response = await fetch(WATCH_LATER_URL, {
+  const response = await fetch(constants.WATCH_LATER_URL, {
     credentials: "include",
   });
 
@@ -428,13 +409,13 @@ async function fetchWatchLater() {
 
   const json = extractInitialData(html);
 
-  const tabs = getValue(
+  const tabs = utils.getValue(
     json,
     ["contents", "twoColumnBrowseResultsRenderer", "tabs"],
     [],
   );
 
-  const contents = getValue(
+  const contents = utils.getValue(
     tabs[0],
     [
       "tabRenderer",
@@ -461,11 +442,11 @@ async function fetchWatchLater() {
     }
 
     videos.push({
-      title: getValue(video, ["title", "runs", 0, "text"], "Без названия"),
+      title: utils.getValue(video, ["title", "runs", 0, "text"], "Без названия"),
 
       url: `https://www.youtube.com/watch?v=${video.videoId}`,
 
-      channel: getValue(
+      channel: utils.getValue(
         video,
         ["shortBylineText", "runs", 0, "text"],
         "YouTube",
@@ -548,7 +529,7 @@ function replaceWatchLaterItems(grid, videos) {
 
   grid.classList.add("watchtube-grid");
 
-  const picks = shuffle([...videos]).slice(0, MAX_FIRST_ROW_VIDEOS);
+  const picks = utils.shuffle([...videos]).slice(0, constants.MAX_FIRST_ROW_VIDEOS);
 
   const items = picks.map(createGridItem);
 
@@ -633,7 +614,7 @@ function createCard(video) {
         <div class="watchtube-thumb-wrap">
             <img
                 class="watchtube-thumb"
-                src="${escapeHtml(video.thumbnail)}"
+                src="${utils.escapeHtml(video.thumbnail)}"
                 alt=""
             >
         </div>
@@ -645,11 +626,11 @@ function createCard(video) {
             <div class="watchtube-copy">
 
                 <div class="watchtube-card-title">
-                    ${escapeHtml(video.title)}
+                    ${utils.escapeHtml(video.title)}
                 </div>
 
                 <div class="watchtube-card-channel">
-                    ${escapeHtml(video.channel)}
+                    ${utils.escapeHtml(video.channel)}
                 </div>
 
                 <div class="watchtube-card-source">
@@ -668,7 +649,7 @@ function createCard(video) {
 }
 
 function findVisibleChannelAvatar(video) {
-  const videoId = getVideoId(video.url);
+  const videoId = utils.getVideoId(video.url);
 
   if (!videoId) {
     return "";
@@ -679,7 +660,7 @@ function findVisibleChannelAvatar(video) {
   ).find((item) => {
     const link = item.querySelector('a[href*="watch?v="]');
 
-    return link && getVideoId(link.href) === videoId;
+    return link && utils.getVideoId(link.href) === videoId;
   });
 
   return (
@@ -693,7 +674,7 @@ function createAvatarImageMarkup(src) {
   return `
         <img
             class="watchtube-avatar"
-            src="${escapeHtml(src)}"
+            src="${utils.escapeHtml(src)}"
             alt=""
         >
     `;
@@ -705,7 +686,7 @@ function createAvatarPlaceholderMarkup(video) {
             class="watchtube-avatar"
             aria-hidden="true"
         >
-            ${escapeHtml(getChannelInitial(video))}
+            ${utils.escapeHtml(getChannelInitial(video))}
         </div>
     `;
 }
@@ -827,22 +808,22 @@ async function fetchChannelAvatarUrl(channelUrl) {
 
 function findChannelAvatarUrl(json) {
   const candidateGroups = [
-    getValue(
+    utils.getValue(
       json,
       ["metadata", "channelMetadataRenderer", "avatar", "thumbnails"],
       [],
     ),
-    getValue(
+    utils.getValue(
       json,
       ["microformat", "microformatDataRenderer", "thumbnail", "thumbnails"],
       [],
     ),
-    getValue(
+    utils.getValue(
       json,
       ["header", "c4TabbedHeaderRenderer", "avatar", "thumbnails"],
       [],
     ),
-    getValue(
+    utils.getValue(
       json,
       [
         "header",
@@ -858,7 +839,7 @@ function findChannelAvatarUrl(json) {
       ],
       [],
     ),
-    getValue(
+    utils.getValue(
       json,
       [
         "header",
@@ -942,17 +923,17 @@ function findNestedAvatarUrl(value) {
 }
 
 function getChannelUrl(video) {
-  const endpoint = getValue(
+  const endpoint = utils.getValue(
     video,
     ["shortBylineText", "runs", 0, "navigationEndpoint"],
     null,
   );
 
   const path =
-    getValue(endpoint, ["commandMetadata", "webCommandMetadata", "url"], "") ||
-    getValue(endpoint, ["browseEndpoint", "canonicalBaseUrl"], "");
+    utils.getValue(endpoint, ["commandMetadata", "webCommandMetadata", "url"], "") ||
+    utils.getValue(endpoint, ["browseEndpoint", "canonicalBaseUrl"], "");
 
-  return normalizeYouTubeUrl(path);
+  return utils.normalizeYouTubeUrl(path);
 }
 
 function removeExistingItems() {
@@ -982,7 +963,7 @@ function isWatchTubeNode(node) {
 
 function buildRenderSignature(videos) {
   return videos
-    .slice(0, MAX_FIRST_ROW_VIDEOS)
+    .slice(0, constants.MAX_FIRST_ROW_VIDEOS)
     .map((video) => video.url)
     .join("|");
 }
@@ -1006,7 +987,7 @@ function containsRelevantMutation(nodes) {
       continue;
     }
 
-    if (node.id === STYLE_ID) {
+    if (node.id === constants.STYLE_ID) {
       continue;
     }
 
@@ -1023,12 +1004,8 @@ function containsRelevantMutation(nodes) {
   return false;
 }
 
-function isHomePage() {
-  return location.pathname === "/";
-}
-
 function findShortsContainer(link) {
-  for (const selector of GUIDE_CONTAINER_SELECTORS) {
+  for (const selector of youtube.GUIDE_CONTAINER_SELECTORS) {
     const container = link.closest(selector);
 
     if (container) {
