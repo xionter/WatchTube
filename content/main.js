@@ -1,10 +1,10 @@
 "use strict";
 
-import * as constants from "./core/constants.js"
-import * as utils from "./core/utils.js"
-import * as youtube from "./core/youtube.js"
-
-const CHANNEL_AVATAR_PROMISES = new Map();
+import * as constants from "./core/constants.js";
+import * as utils from "./core/utils.js";
+import * as youtube from "./core/youtube.js";
+import { applyShortsVisibility } from "./features/shorts/shorts.js";
+import * as watchLater from "./features/watchLater/index.js";
 
 let domObserverStarted = false;
 let refreshScheduled = false;
@@ -332,20 +332,6 @@ function buildWatchTubeCss() {
     `;
 }
 
-function applyShortsVisibility(hideShorts) {
-  const display = hideShorts ? "none" : "";
-
-  for (const shelf of document.querySelectorAll(
-    youtube.SHORTS_SHELF_SELECTORS.join(", "),
-  )) {
-    shelf.style.display = display;
-  }
-
-  for (const link of document.querySelectorAll(youtube.SHORTS_LINK_SELECTORS)) {
-    findShortsContainer(link).style.display = display;
-  }
-}
-
 function findHomeContents() {
   for (const selector of youtube.HOME_CONTENT_SELECTORS) {
     const grid = document.querySelector(selector);
@@ -376,7 +362,7 @@ async function getWatchLaterVideos() {
   }
 
   try {
-    const items = await fetchWatchLater();
+    const items = await watchLater.api.fetchWatchLater();
 
     await chrome.storage.local.set({
       [constants.CACHE_KEY]: {
@@ -392,89 +378,6 @@ async function getWatchLaterVideos() {
 
     return cache && Array.isArray(cache.items) ? cache.items : [];
   }
-}
-
-async function fetchWatchLater() {
-  const response = await fetch(constants.WATCH_LATER_URL, {
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Watch Later request failed with status ${response.status}`,
-    );
-  }
-
-  const html = await response.text();
-
-  const json = extractInitialData(html);
-
-  const tabs = utils.getValue(
-    json,
-    ["contents", "twoColumnBrowseResultsRenderer", "tabs"],
-    [],
-  );
-
-  const contents = utils.getValue(
-    tabs[0],
-    [
-      "tabRenderer",
-      "content",
-      "sectionListRenderer",
-      "contents",
-      0,
-      "itemSectionRenderer",
-      "contents",
-      0,
-      "playlistVideoListRenderer",
-      "contents",
-    ],
-    [],
-  );
-
-  const videos = [];
-
-  for (const item of contents) {
-    const video = item.playlistVideoRenderer;
-
-    if (!video || !video.videoId) {
-      continue;
-    }
-
-    videos.push({
-      title: utils.getValue(video, ["title", "runs", 0, "text"], "Без названия"),
-
-      url: `https://www.youtube.com/watch?v=${video.videoId}`,
-
-      channel: utils.getValue(
-        video,
-        ["shortBylineText", "runs", 0, "text"],
-        "YouTube",
-      ),
-
-      channelUrl: getChannelUrl(video),
-
-      thumbnail: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
-    });
-  }
-
-  return videos;
-}
-function extractInitialData(html) {
-  const patterns = [
-    /var ytInitialData\s*=\s*(.*?);<\/script>/s,
-    /window\["ytInitialData"\]\s*=\s*(.*?);<\/script>/s,
-  ];
-
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-
-    if (match?.[1]) {
-      return JSON.parse(match[1]);
-    }
-  }
-
-  throw new Error("ytInitialData not found");
 }
 
 async function preloadImages(urls) {
@@ -720,7 +623,7 @@ async function loadMissingChannelAvatar(card, video) {
     return;
   }
 
-  const avatarUrl = await getChannelAvatarUrl(video.channelUrl);
+  const avatarUrl = await watchLater.api.getChannelAvatarUrl(video.channelUrl);
 
   if (!avatarUrl || !card.isConnected || !(await canLoadImage(avatarUrl))) {
     return;
@@ -774,166 +677,6 @@ function canLoadImage(url) {
 
     img.src = url;
   });
-}
-
-async function getChannelAvatarUrl(channelUrl) {
-  if (!CHANNEL_AVATAR_PROMISES.has(channelUrl)) {
-    CHANNEL_AVATAR_PROMISES.set(channelUrl, fetchChannelAvatarUrl(channelUrl));
-  }
-
-  return CHANNEL_AVATAR_PROMISES.get(channelUrl);
-}
-
-async function fetchChannelAvatarUrl(channelUrl) {
-  try {
-    const response = await fetch(channelUrl, {
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      return "";
-    }
-
-    const html = await response.text();
-
-    const json = extractInitialData(html);
-
-    return findChannelAvatarUrl(json);
-  } catch (error) {
-    console.warn("WatchTube: failed to load channel avatar", error);
-
-    return "";
-  }
-}
-
-function findChannelAvatarUrl(json) {
-  const candidateGroups = [
-    utils.getValue(
-      json,
-      ["metadata", "channelMetadataRenderer", "avatar", "thumbnails"],
-      [],
-    ),
-    utils.getValue(
-      json,
-      ["microformat", "microformatDataRenderer", "thumbnail", "thumbnails"],
-      [],
-    ),
-    utils.getValue(
-      json,
-      ["header", "c4TabbedHeaderRenderer", "avatar", "thumbnails"],
-      [],
-    ),
-    utils.getValue(
-      json,
-      [
-        "header",
-        "pageHeaderRenderer",
-        "content",
-        "pageHeaderViewModel",
-        "image",
-        "decoratedAvatarViewModel",
-        "avatar",
-        "avatarViewModel",
-        "image",
-        "sources",
-      ],
-      [],
-    ),
-    utils.getValue(
-      json,
-      [
-        "header",
-        "pageHeaderRenderer",
-        "content",
-        "pageHeaderViewModel",
-        "image",
-        "avatarViewModel",
-        "image",
-        "sources",
-      ],
-      [],
-    ),
-  ];
-
-  for (const candidates of candidateGroups) {
-    const url = selectLargestImageUrl(candidates);
-
-    if (url) {
-      return url;
-    }
-  }
-
-  return findNestedAvatarUrl(json);
-}
-
-function selectLargestImageUrl(candidates) {
-  if (!Array.isArray(candidates)) {
-    return "";
-  }
-
-  const image = candidates
-    .filter((candidate) => candidate?.url)
-    .sort((left, right) => {
-      return (right.width || 0) - (left.width || 0);
-    })[0];
-
-  return image?.url || "";
-}
-
-function findNestedAvatarUrl(value) {
-  if (!value || typeof value !== "object") {
-    return "";
-  }
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const url = findNestedAvatarUrl(item);
-
-      if (url) {
-        return url;
-      }
-    }
-
-    return "";
-  }
-
-  for (const [key, child] of Object.entries(value)) {
-    if (key.toLowerCase().includes("avatar")) {
-      const url =
-        selectLargestImageUrl(child?.thumbnails) ||
-        selectLargestImageUrl(child?.image?.sources) ||
-        selectLargestImageUrl(child?.avatarViewModel?.image?.sources) ||
-        findNestedAvatarUrl(child);
-
-      if (url) {
-        return url;
-      }
-    }
-  }
-
-  for (const child of Object.values(value)) {
-    const url = findNestedAvatarUrl(child);
-
-    if (url) {
-      return url;
-    }
-  }
-
-  return "";
-}
-
-function getChannelUrl(video) {
-  const endpoint = utils.getValue(
-    video,
-    ["shortBylineText", "runs", 0, "navigationEndpoint"],
-    null,
-  );
-
-  const path =
-    utils.getValue(endpoint, ["commandMetadata", "webCommandMetadata", "url"], "") ||
-    utils.getValue(endpoint, ["browseEndpoint", "canonicalBaseUrl"], "");
-
-  return utils.normalizeYouTubeUrl(path);
 }
 
 function removeExistingItems() {
@@ -1002,16 +745,4 @@ function containsRelevantMutation(nodes) {
   }
 
   return false;
-}
-
-function findShortsContainer(link) {
-  for (const selector of youtube.GUIDE_CONTAINER_SELECTORS) {
-    const container = link.closest(selector);
-
-    if (container) {
-      return container;
-    }
-  }
-
-  return link;
 }

@@ -37,7 +37,16 @@
         {
             "resources": [
                 "content/main.js",
-                "content/core/*.js"
+
+                "content/core/constants.js",
+                "content/core/utils.js",
+                "content/core/youtube.js",
+
+                "content/features/shorts/shorts.js",
+
+                "content/features/watchLater/api.js",
+                "content/features/watchLater/parser.js",
+                "content/features/watchLater/index.js"
             ],
             "matches": ["https://www.youtube.com/*"]
         }
