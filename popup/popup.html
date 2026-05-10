@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,20 +11,20 @@
       <section class="popup-card">
         <div class="popup-head">
           <p class="popup-badge">WatchTube</p>
-          <h1 class="popup-title">Настройки YouTube</h1>
+          <h1 class="popup-title">YouTube Settings</h1>
           <p class="popup-subtitle">
-            Сохранённые видео встраиваются в главную страницу и выглядят как
-            обычные карточки YouTube.
+            Saved videos are integrated into the homepage and appear like
+            regular YouTube cards.
           </p>
         </div>
 
         <div class="settings-group">
           <label class="toggle-row" for="showWatchLater">
             <div class="toggle-copy">
-              <span class="toggle-label">Watch Later в первой строке</span>
-              <span id="showWatchLaterState" class="toggle-state"
-                >Включено</span
-              >
+              <span class="toggle-label">Watch Later in the first row</span>
+              <span id="showWatchLaterState" class="toggle-state">
+                Enabled
+              </span>
             </div>
 
             <span class="switch">
@@ -35,8 +35,10 @@
 
           <label class="toggle-row" for="hideShorts">
             <div class="toggle-copy">
-              <span class="toggle-label">Скрывать Shorts</span>
-              <span id="hideShortsState" class="toggle-state">Выключено</span>
+              <span class="toggle-label">Hide Shorts</span>
+              <span id="hideShortsState" class="toggle-state">
+                Disabled
+              </span>
             </div>
 
             <span class="switch">
@@ -46,23 +48,23 @@
           </label>
         </div>
 
-        <div class="quick-actions" aria-label="Быстрые действия">
+        <div class="quick-actions" aria-label="Quick actions">
           <button id="openWatchLater" class="primary-action" type="button">
-            Открыть Watch Later
+            Open Watch Later
           </button>
         </div>
 
         <section class="panel panel-info">
-          <h2 class="panel-title">Что делает расширение</h2>
+          <h2 class="panel-title">What the extension does</h2>
           <ul class="feature-list">
-            <li>встраивает Watch Later в первую строку ленты</li>
-            <li>может скрывать Shorts</li>
-            <li>обновляет открытую вкладку YouTube автоматически</li>
+            <li>integrates Watch Later into the first feed row</li>
+            <li>can hide Shorts</li>
+            <li>automatically refreshes open YouTube tabs</li>
           </ul>
         </section>
 
         <p id="status" class="popup-status">
-          Настройки применяются автоматически на открытых вкладках YouTube.
+          Settings are automatically applied to open YouTube tabs.
         </p>
       </section>
     </main>

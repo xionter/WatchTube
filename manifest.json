@@ -22,10 +22,6 @@
     "default_icon": "icons/logo48.png",
     "default_title": "WatchTube"
   },
-  "background": {
-    "service_worker": "background/background.js",
-    "scripts": ["background/background.js"]
-  },
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*"],

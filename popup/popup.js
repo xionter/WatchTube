@@ -6,96 +6,118 @@ const DEFAULT_SETTINGS = {
 };
 
 const WATCH_LATER_URL = "https://www.youtube.com/playlist?list=WL";
-const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
-const controls = {};
-const stateLabels = {};
-const openWatchLater = document.getElementById("openWatchLater");
-const status = document.getElementById("status");
 
-for (const key of SETTING_KEYS) {
-  controls[key] = document.getElementById(key);
-  stateLabels[key] = document.getElementById(`${key}State`);
-}
+const elements = {
+  controls: {
+    showWatchLater: document.querySelector("#showWatchLater"),
+    hideShorts: document.querySelector("#hideShorts"),
+  },
 
-init().catch((error) => {
-  status.textContent = `Не удалось загрузить настройки: ${error.message}`;
-});
+  states: {
+    showWatchLater: document.querySelector("#showWatchLaterState"),
+    hideShorts: document.querySelector("#hideShortsState"),
+  },
 
-async function init() {
+  openWatchLaterButton: document.querySelector("#openWatchLater"),
+  statusElement: document.querySelector("#status"),
+};
+
+main().catch(handleError);
+
+async function main() {
   assertUi();
 
-  const settings = await readSettings();
+  const settings = await getSettings();
 
-  syncControls(settings);
-  renderStatus(settings);
+  render(settings);
 
-  controls.showWatchLater.addEventListener("change", handleToggleChange);
-  controls.hideShorts.addEventListener("change", handleToggleChange);
-  openWatchLater.addEventListener("click", handleOpenWatchLater);
+  for (const control of Object.values(elements.controls)) {
+    control.addEventListener("change", handleSettingsChange);
+  }
+
+  elements.openWatchLaterButton.addEventListener(
+    "click",
+    openWatchLaterPlaylist,
+  );
 }
 
 function assertUi() {
-  for (const key of SETTING_KEYS) {
-    if (!controls[key] || !stateLabels[key]) {
-      throw new Error("Popup control is missing");
-    }
-  }
+  const requiredElements = [
+    ...Object.values(elements.controls),
+    ...Object.values(elements.states),
+    elements.openWatchLaterButton,
+    elements.statusElement,
+  ];
 
-  if (!openWatchLater || !status) {
-    throw new Error("Popup status element is missing");
+  if (requiredElements.some((element) => !element)) {
+    throw new Error("Required popup elements are missing");
   }
 }
 
-async function readSettings() {
-  const { watchTubeSettings } =
+async function getSettings() {
+  const { watchTubeSettings = {} } =
     await chrome.storage.local.get("watchTubeSettings");
+
   return {
     ...DEFAULT_SETTINGS,
-    ...(watchTubeSettings || {}),
+    ...watchTubeSettings,
   };
 }
 
-function syncControls(settings) {
-  for (const key of SETTING_KEYS) {
-    controls[key].checked = settings[key];
-    stateLabels[key].textContent = settings[key] ? "Включено" : "Выключено";
+function render(settings) {
+  updateControls(settings);
+  updateStatus(settings);
+}
+
+function updateControls(settings) {
+  for (const [key, control] of Object.entries(elements.controls)) {
+    const enabled = settings[key];
+
+    control.checked = enabled;
+    elements.states[key].textContent = enabled ? "On" : "Off";
   }
 }
 
-async function handleToggleChange() {
-  const nextSettings = collectSettings();
-
-  await chrome.storage.local.set({ watchTubeSettings: nextSettings });
-  syncControls(nextSettings);
-  renderStatus(nextSettings);
-}
-
-function collectSettings() {
-  const settings = {};
-
-  for (const key of SETTING_KEYS) {
-    settings[key] = controls[key].checked;
-  }
-
-  return settings;
-}
-
-function renderStatus(settings) {
+function updateStatus(settings) {
   const enabledFeatures = [];
 
   if (settings.showWatchLater) {
-    enabledFeatures.push("Watch Later в первой строке");
+    enabledFeatures.push("Watch Later in the first row");
   }
+
   if (settings.hideShorts) {
-    enabledFeatures.push("скрытие Shorts");
+    enabledFeatures.push("Shorts hiding");
   }
-  status.textContent = enabledFeatures.length
-    ? `Активно: ${enabledFeatures.join(", ")}. Изменения применяются автоматически на открытых вкладках YouTube.`
-    : "Все дополнительные функции отключены. YouTube будет выглядеть почти как обычно.";
+
+  elements.statusElement.textContent = enabledFeatures.length
+    ? `Active: ${enabledFeatures.join(", ")}. Changes are automatically applied to open YouTube tabs.`
+    : "All additional features are disabled. YouTube will look almost unchanged.";
 }
 
-async function handleOpenWatchLater() {
+async function handleSettingsChange() {
+  const settings = Object.fromEntries(
+    Object.entries(elements.controls).map(([key, control]) => [
+      key,
+      control.checked,
+    ]),
+  );
+
+  await chrome.storage.local.set({
+    watchTubeSettings: settings,
+  });
+
+  render(settings);
+}
+
+async function openWatchLaterPlaylist() {
   await chrome.tabs.create({
     url: WATCH_LATER_URL,
   });
+}
+
+function handleError(error) {
+  console.error(error);
+
+  elements.statusElement.textContent =
+    `Could not load settings: ${error.message}`;
 }
