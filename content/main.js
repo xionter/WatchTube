@@ -10,7 +10,6 @@ let domObserverStarted = false;
 let refreshScheduled = false;
 let refreshInFlight = null;
 let lastPageUrl = location.href;
-let lastRenderedSignature = "";
 
 start();
 
@@ -33,7 +32,7 @@ function watchYoutubeDom() {
 
     if (navigated) {
       lastPageUrl = location.href;
-      lastRenderedSignature = "";
+        watchLater.render.resetRenderState();
     }
 
     if (!navigated && !shouldReactToMutations(mutations)) {
@@ -82,7 +81,7 @@ async function refreshPage() {
   }
 
   refreshInFlight = (async () => {
-    const settings = await readSettings();
+    const settings = await watchLater.storage.readSettings();
 
     await ensureStyleElement();
 
@@ -90,7 +89,7 @@ async function refreshPage() {
 
     if (!settings.showWatchLater || !youtube.isHomePage()) {
       watchLater.render.removeExistingWatchTubeNodes();
-      lastRenderedSignature = "";
+        watchLater.render.resetRenderState();
       return;
     }
 
@@ -101,11 +100,11 @@ async function refreshPage() {
       return;
     }
 
-    const videos = await getWatchLaterVideos();
+    const videos = await watchLater.storage.getWatchLaterVideos();
 
     if (!videos.length) {
       watchLater.render.removeExistingWatchTubeNodes();
-      lastRenderedSignature = "";
+        watchLater.render.resetRenderState();
       return;
     }
 
@@ -116,51 +115,6 @@ async function refreshPage() {
     await refreshInFlight;
   } finally {
     refreshInFlight = null;
-  }
-}
-
-async function readSettings() {
-  const stored = await chrome.storage.local.get(constants.SETTINGS_KEY);
-
-  return {
-    ...constants.DEFAULT_SETTINGS,
-    ...(stored[constants.SETTINGS_KEY] || {}),
-  };
-}
-
-async function getWatchLaterVideos() {
-  const now = Date.now();
-
-  const stored = await chrome.storage.local.get(constants.CACHE_KEY);
-
-  const cache = stored[constants.CACHE_KEY];
-
-  if (
-    cache &&
-    cache.version === constants.CACHE_VERSION &&
-    Array.isArray(cache.items) &&
-    cache.items.length &&
-    now - cache.updatedAt < constants.CACHE_TTL_MS
-  ) {
-    return cache.items;
-  }
-
-  try {
-    const items = await watchLater.api.fetchWatchLater();
-
-    await chrome.storage.local.set({
-      [constants.CACHE_KEY]: {
-        version: constants.CACHE_VERSION,
-        items,
-        updatedAt: now,
-      },
-    });
-
-    return items;
-  } catch (error) {
-    console.warn("WatchTube: failed to refresh Watch Later", error);
-
-    return cache && Array.isArray(cache.items) ? cache.items : [];
   }
 }
 

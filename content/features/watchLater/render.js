@@ -3,6 +3,11 @@ import * as constants from "../../core/constants.js";
 import * as avatar from "./avatar.js";
 
 let shuffleLocked = false;
+let lastRenderedSignature = "";
+
+export function resetRenderState() {
+  lastRenderedSignature = "";
+}
 
 export function renderWatchLaterItems(grid, videos) {
   const existingItems = Array.from(
