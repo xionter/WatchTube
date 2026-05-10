@@ -32,7 +32,7 @@ function watchYoutubeDom() {
 
     if (navigated) {
       lastPageUrl = location.href;
-        watchLater.render.resetRenderState();
+      watchLater.render.resetRenderState();
     }
 
     if (!navigated && !shouldReactToMutations(mutations)) {
@@ -88,8 +88,7 @@ async function refreshPage() {
     applyShortsVisibility(settings.hideShorts);
 
     if (!settings.showWatchLater || !youtube.isHomePage()) {
-      watchLater.render.removeExistingWatchTubeNodes();
-        watchLater.render.resetRenderState();
+      clearWatchLater();
       return;
     }
 
@@ -103,8 +102,7 @@ async function refreshPage() {
     const videos = await watchLater.storage.getWatchLaterVideos();
 
     if (!videos.length) {
-      watchLater.render.removeExistingWatchTubeNodes();
-        watchLater.render.resetRenderState();
+      clearWatchLater();
       return;
     }
 
@@ -140,8 +138,7 @@ function containsRelevantMutation(nodes) {
     if (node.id === constants.STYLE_ID) {
       continue;
     }
-
-    if (node.classList.contains("watchtube-item") || node.closest(".watchtube-item")) {
+    if (watchLater.render.isWatchTubeNode(node)) {
       continue;
     }
 
@@ -149,4 +146,9 @@ function containsRelevantMutation(nodes) {
   }
 
   return false;
+}
+
+function clearWatchLater() {
+  watchLater.render.removeExistingWatchTubeNodes();
+  watchLater.render.resetRenderState();
 }

@@ -103,9 +103,7 @@ function createAvatarPlaceholderElement(video) {
   const placeholder = document.createElement("div");
 
   placeholder.className = "watchtube-avatar";
-
   placeholder.setAttribute("aria-hidden", "true");
-
   placeholder.textContent = getChannelInitial(video);
 
   return placeholder;
@@ -122,9 +120,7 @@ function canLoadImage(url) {
     const img = new Image();
 
     img.onload = () => resolve(true);
-
     img.onerror = () => resolve(false);
-
     img.src = url;
   });
 }

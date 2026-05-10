@@ -140,35 +140,35 @@ function createCard(video) {
 
   card.innerHTML = `
         <div class="watchtube-thumb-wrap">
-            <img
-                class="watchtube-thumb"
-                src="${utils.escapeHtml(video.thumbnail)}"
-                alt=""
-            >
+        <img
+    class="watchtube-thumb"
+    src="${utils.escapeHtml(video.thumbnail)}"
+    alt=""
+        >
         </div>
 
         <div class="watchtube-meta">
 
-            ${avatarMarkup}
+        ${avatarMarkup}
 
-            <div class="watchtube-copy">
+        <div class="watchtube-copy">
 
-                <div class="watchtube-card-title">
-                    ${utils.escapeHtml(video.title)}
-                </div>
+        <div class="watchtube-card-title">
+        ${utils.escapeHtml(video.title)}
+        </div>
 
-                <div class="watchtube-card-channel">
-                    ${utils.escapeHtml(video.channel)}
-                </div>
+        <div class="watchtube-card-channel">
+        ${utils.escapeHtml(video.channel)}
+        </div>
 
-                <div class="watchtube-card-source">
-                    Watch Later
-                </div>
-
-            </div>
+        <div class="watchtube-card-source">
+        Watch Later
+        </div>
 
         </div>
-    `;
+
+        </div>
+        `;
 
   avatar.wireAvatarFallback(card, video);
   void avatar.loadMissingChannelAvatar(card, video);
@@ -179,6 +179,7 @@ function createCard(video) {
 function isWatchTubeNode(node) {
   return (
     node.classList.contains("watchtube-item") ||
+    node.closest(".watchtube-item") ||
     node.classList.contains("watchtube-shuffle")
   );
 }
