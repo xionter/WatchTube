@@ -1,6 +1,6 @@
 export const DEFAULT_SETTINGS = {
-    showWatchLater: true,
-    hideShorts: false,
+  showWatchLater: true,
+  hideShorts: false,
 };
 
 export const WATCH_LATER_URL = "https://www.youtube.com/playlist?list=WL";

@@ -25,8 +25,11 @@ export function getChannelUrl(video) {
   );
 
   const path =
-    utils.getValue(endpoint, ["commandMetadata", "webCommandMetadata", "url"], "") ||
-    utils.getValue(endpoint, ["browseEndpoint", "canonicalBaseUrl"], "");
+    utils.getValue(
+      endpoint,
+      ["commandMetadata", "webCommandMetadata", "url"],
+      "",
+    ) || utils.getValue(endpoint, ["browseEndpoint", "canonicalBaseUrl"], "");
 
   return utils.normalizeYouTubeUrl(path);
 }

@@ -5,7 +5,6 @@ import * as avatar from "./avatar.js";
 let shuffleLocked = false;
 
 export function renderWatchLaterItems(grid, videos) {
-
   const existingItems = Array.from(
     document.querySelectorAll(".watchtube-item"),
   );
@@ -37,7 +36,9 @@ function replaceWatchLaterItems(grid, videos) {
 
   grid.classList.add("watchtube-grid");
 
-  const picks = utils.shuffle([...videos]).slice(0, constants.MAX_FIRST_ROW_VIDEOS);
+  const picks = utils
+    .shuffle([...videos])
+    .slice(0, constants.MAX_FIRST_ROW_VIDEOS);
 
   const items = picks.map(createGridItem);
 

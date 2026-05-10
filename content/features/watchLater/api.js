@@ -52,7 +52,11 @@ export async function fetchWatchLater() {
     }
 
     videos.push({
-      title: utils.getValue(video, ["title", "runs", 0, "text"], "Без названия"),
+      title: utils.getValue(
+        video,
+        ["title", "runs", 0, "text"],
+        "Без названия",
+      ),
 
       url: `https://www.youtube.com/watch?v=${video.videoId}`,
 

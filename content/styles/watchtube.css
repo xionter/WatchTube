@@ -1,179 +1,169 @@
 .watchtube-item * {
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 .watchtube-grid,
 .watchtube-item {
-    position: relative;
+  position: relative;
 }
 
 .watchtube-grid {
-    padding-top: 54px;
+  padding-top: 54px;
 }
 
 .watchtube-card {
-    display: grid;
-    gap: 12px;
+  display: grid;
+  gap: 12px;
 
-    color: #f1f1f1 !important;
+  color: #f1f1f1 !important;
 
-    text-decoration: none;
+  text-decoration: none;
 }
 
 .watchtube-thumb-wrap {
-    position: relative;
+  position: relative;
 
-    overflow: hidden;
+  overflow: hidden;
 
-    width: 100%;
-    aspect-ratio: 16 / 9;
+  width: 100%;
+  aspect-ratio: 16 / 9;
 
-    border-radius: 12px;
+  border-radius: 12px;
 
-    background: #222;
+  background: #222;
 }
 
 .watchtube-thumb {
-    display: block;
+  display: block;
 
-    width: 100%;
-    height: 100%;
+  width: 100%;
+  height: 100%;
 
-    object-fit: cover;
+  object-fit: cover;
 
-    transition: transform 180ms ease;
+  transition: transform 180ms ease;
 }
 
 .watchtube-card:hover .watchtube-thumb {
-    transform: scale(1.02);
+  transform: scale(1.02);
 }
 
 .watchtube-meta {
-    display: grid;
+  display: grid;
 
-    grid-template-columns:
-        36px
-        minmax(0, 1fr);
+  grid-template-columns:
+    36px
+    minmax(0, 1fr);
 
-    gap: 12px;
+  gap: 12px;
 
-    min-width: 0;
+  min-width: 0;
 
-    align-items: start;
+  align-items: start;
 }
 
 .watchtube-avatar {
-    display: grid;
-    place-items: center;
+  display: grid;
+  place-items: center;
 
-    width: 36px;
-    height: 36px;
+  width: 36px;
+  height: 36px;
 
-    border-radius: 50%;
+  border-radius: 50%;
 
-    object-fit: cover;
+  object-fit: cover;
 
-    background: #303030;
-    color: #fff;
+  background: #303030;
+  color: #fff;
 
-    flex-shrink: 0;
+  flex-shrink: 0;
 
-    font:
-        700
-        15px/1
-        Roboto,
-        Arial,
-        sans-serif;
+  font:
+    700 15px/1 Roboto,
+    Arial,
+    sans-serif;
 }
 
 .watchtube-copy {
-    min-width: 0;
+  min-width: 0;
 }
 
 .watchtube-card-title {
-    display: -webkit-box;
+  display: -webkit-box;
 
-    overflow: hidden;
+  overflow: hidden;
 
-    color: #f1f1f1 !important;
+  color: #f1f1f1 !important;
 
-    font-family:
-        Roboto,
-        Arial,
-        sans-serif;
+  font-family: Roboto, Arial, sans-serif;
 
-    font-size: 1.6rem;
-    font-weight: 500;
-    line-height: 2.2rem;
+  font-size: 1.6rem;
+  font-weight: 500;
+  line-height: 2.2rem;
 
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .watchtube-card-channel,
 .watchtube-card-source {
-    overflow: hidden;
+  overflow: hidden;
 
-    color: #aaaaaa !important;
+  color: #aaaaaa !important;
 
-    font-family:
-        Roboto,
-        Arial,
-        sans-serif;
+  font-family: Roboto, Arial, sans-serif;
 
-    font-size: 1.4rem;
-    line-height: 2rem;
+  font-size: 1.4rem;
+  line-height: 2rem;
 
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .watchtube-card-channel {
-    margin-top: 4px;
+  margin-top: 4px;
 }
 
 .watchtube-shuffle {
-    position: absolute;
+  position: absolute;
 
-    top: 6px;
-    right: 16px;
+  top: 6px;
+  right: 16px;
 
-    z-index: 2;
+  z-index: 2;
 
-    min-height: 42px;
+  min-height: 42px;
 
-    padding: 0 18px;
+  padding: 0 18px;
 
-    border: none;
-    border-radius: 999px;
+  border: none;
+  border-radius: 999px;
 
-    background: #ff0033;
-    color: white;
+  background: #ff0033;
+  color: white;
 
-    cursor: pointer;
+  cursor: pointer;
 
-    font:
-        700
-        14px/1
-        Roboto,
-        Arial,
-        sans-serif;
+  font:
+    700 14px/1 Roboto,
+    Arial,
+    sans-serif;
 
-    transition:
-        background 160ms ease,
-        transform 160ms ease,
-        opacity 160ms ease;
+  transition:
+    background 160ms ease,
+    transform 160ms ease,
+    opacity 160ms ease;
 }
 
 .watchtube-shuffle:hover {
-    background: #ff3355;
-    transform: translateY(-1px);
+  background: #ff3355;
+  transform: translateY(-1px);
 }
 
 .watchtube-shuffle:active {
-    transform: translateY(0);
+  transform: translateY(0);
 }
 
 .watchtube-shuffle:disabled {
-    cursor: default;
+  cursor: default;
 }

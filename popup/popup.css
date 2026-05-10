@@ -110,7 +110,11 @@ body {
 
   cursor: pointer;
 
-  font: 700 13px/1 "Segoe UI", Roboto, Arial, sans-serif;
+  font:
+    700 13px/1 "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
 
   transition:
     filter 160ms ease,

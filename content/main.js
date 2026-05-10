@@ -187,10 +187,7 @@ function containsRelevantMutation(nodes) {
       continue;
     }
 
-    if (
-      node.classList.contains("watchtube-item") ||
-      node.closest(".watchtube-item")
-    ) {
+    if (node.classList.contains("watchtube-item") || node.closest(".watchtube-item")) {
       continue;
     }
 

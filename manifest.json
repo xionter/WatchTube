@@ -1,59 +1,59 @@
 {
-    "manifest_version": 3,
-    "name": "WatchTube",
-    "version": "1.1.0",
-    "description": "Enhances YouTube’s homepage by modifying its layout and recommendations. Adds Watch Later videos to the homepage (with reshuffling), surfaces random unwatched videos from your subscriptions, and allows hiding YouTube Shorts.",
-    "icons": {
-        "48": "icons/logo48.png",
-        "96": "icons/logo96.png"
-    },
-    "permissions": ["storage"],
-    "host_permissions": ["https://www.youtube.com/*"],
-    "browser_specific_settings": {
-        "gecko": {
-            "id": "WatchTube@mozilla.org",
-            "data_collection_permissions": {
-                "required": ["none"]
-            }
-        }
-    },
-    "action": {
-        "default_popup": "popup/popup.html",
-        "default_icon": "icons/logo48.png",
-        "default_title": "WatchTube"
-    },
-    "background": {
-        "service_worker": "background/background.js",
-        "scripts": ["background/background.js"]
-    },
-    "content_scripts": [
-        {
-            "matches": ["https://www.youtube.com/*"],
-            "js": ["content/content.js"],
-            "run_at": "document_idle"
-        }
-    ],
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "content/main.js",
+  "manifest_version": 3,
+  "name": "WatchTube",
+  "version": "1.1.0",
+  "description": "Enhances YouTube’s homepage by modifying its layout and recommendations. Adds Watch Later videos to the homepage (with reshuffling), surfaces random unwatched videos from your subscriptions, and allows hiding YouTube Shorts.",
+  "icons": {
+    "48": "icons/logo48.png",
+    "96": "icons/logo96.png"
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.youtube.com/*"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "WatchTube@mozilla.org",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": "icons/logo48.png",
+    "default_title": "WatchTube"
+  },
+  "background": {
+    "service_worker": "background/background.js",
+    "scripts": ["background/background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/main.js",
 
-                "content/core/constants.js",
-                "content/core/utils.js",
-                "content/core/youtube.js",
+        "content/core/constants.js",
+        "content/core/utils.js",
+        "content/core/youtube.js",
 
-                "content/features/shorts/shorts.js",
+        "content/features/shorts/shorts.js",
 
-                "content/features/watchLater/api.js",
-                "content/features/watchLater/avatar.js",
-                "content/features/watchLater/index.js",
-                "content/features/watchLater/parser.js",
-                "content/features/watchLater/render.js",
+        "content/features/watchLater/api.js",
+        "content/features/watchLater/avatar.js",
+        "content/features/watchLater/index.js",
+        "content/features/watchLater/parser.js",
+        "content/features/watchLater/render.js",
 
-                "content/styles/watchtube.css",
-                "content/styles/inject.js"
-            ],
-            "matches": ["https://www.youtube.com/*"]
-        }
-    ]
+        "content/styles/watchtube.css",
+        "content/styles/inject.js"
+      ],
+      "matches": ["https://www.youtube.com/*"]
+    }
+  ]
 }
