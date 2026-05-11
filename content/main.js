@@ -2,21 +2,27 @@
 
 import * as constants from "./core/constants.js";
 import * as youtube from "./core/youtube.js";
+
 import { ensureStyleElement } from "./styles/inject.js";
 import { applyShortsVisibility } from "./features/shorts/shorts.js";
-import * as watchLater from "./features/watchLater/index.js";
+
+import * as watchLater from "./features/feedRows/watchLater/index.js";
+import * as feedRowRenderer from "./features/feedRows/shared/render.js";
 
 let domObserverStarted = false;
 let refreshScheduled = false;
 let refreshInFlight = null;
+
 let lastPageUrl = location.href;
 
 start();
 
 function start() {
   void ensureStyleElement();
+
   watchYoutubeDom();
   watchStorageChanges();
+
   scheduleRefresh();
 }
 
@@ -28,11 +34,16 @@ function watchYoutubeDom() {
   domObserverStarted = true;
 
   const observer = new MutationObserver((mutations) => {
+    if (feedRowRenderer.isRenderInProgress()) {
+      return;
+    }
+
     const navigated = location.href !== lastPageUrl;
 
     if (navigated) {
       lastPageUrl = location.href;
-      watchLater.render.resetRenderState();
+
+      feedRowRenderer.resetRenderState();
     }
 
     if (!navigated && !shouldReactToMutations(mutations)) {
@@ -41,7 +52,6 @@ function watchYoutubeDom() {
 
     scheduleRefresh();
   });
-
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
@@ -71,6 +81,7 @@ function scheduleRefresh() {
 
   requestAnimationFrame(() => {
     refreshScheduled = false;
+
     void refreshPage();
   });
 }
@@ -89,6 +100,7 @@ async function refreshPage() {
 
     if (!settings.showWatchLater || !youtube.isHomePage()) {
       clearWatchLater();
+
       return;
     }
 
@@ -96,6 +108,7 @@ async function refreshPage() {
 
     if (!grid) {
       window.setTimeout(scheduleRefresh, 800);
+
       return;
     }
 
@@ -103,10 +116,23 @@ async function refreshPage() {
 
     if (!videos.length) {
       clearWatchLater();
+
       return;
     }
+    console.log("WatchTube refreshPage");
 
-    watchLater.render.renderWatchLaterItems(grid, videos);
+    console.log({
+      isHomePage: youtube.isHomePage(),
+      settings,
+      grid,
+    });
+
+    console.log("videos", videos);
+    feedRowRenderer.renderFeedRow(grid, {
+      rowId: "watch-later",
+      title: "Watch Later",
+      videos,
+    });
   })();
 
   try {
@@ -138,7 +164,8 @@ function containsRelevantMutation(nodes) {
     if (node.id === constants.STYLE_ID) {
       continue;
     }
-    if (watchLater.render.isWatchTubeNode(node)) {
+
+    if (feedRowRenderer.isWatchTubeNode(node)) {
       continue;
     }
 
@@ -149,6 +176,7 @@ function containsRelevantMutation(nodes) {
 }
 
 function clearWatchLater() {
-  watchLater.render.removeExistingWatchTubeNodes();
-  watchLater.render.resetRenderState();
+  feedRowRenderer.removeFeedRow("watch-later");
+
+  feedRowRenderer.resetRenderState();
 }

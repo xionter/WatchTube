@@ -1,5 +1,5 @@
-import * as constants from "../../core/constants.js";
-import * as utils from "../../core/utils.js";
+import * as constants from "../../../core/constants.js";
+import * as utils from "../../../core/utils.js";
 import * as parser from "./parser.js";
 
 const CHANNEL_AVATAR_PROMISES = new Map();
@@ -52,11 +52,7 @@ export async function fetchWatchLater() {
     }
 
     videos.push({
-      title: utils.getValue(
-        video,
-        ["title", "runs", 0, "text"],
-        "Без названия",
-      ),
+      title: utils.getValue(video, ["title", "runs", 0, "text"], "Untitled"),
 
       url: `https://www.youtube.com/watch?v=${video.videoId}`,
 
@@ -69,6 +65,7 @@ export async function fetchWatchLater() {
       channelUrl: parser.getChannelUrl(video),
 
       thumbnail: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
+      loadAvatar: getChannelAvatarUrl,
     });
   }
 

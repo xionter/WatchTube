@@ -1,4 +1,4 @@
-import * as utils from "../../core/utils.js";
+import * as utils from "../../../core/utils.js";
 
 export function extractInitialData(html) {
   const patterns = [

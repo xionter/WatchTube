@@ -1,5 +1,4 @@
-import * as utils from "../../core/utils.js";
-import * as api from "./api.js";
+import * as utils from "../../../core/utils.js";
 
 export function findVisibleChannelAvatar(video) {
   const videoId = utils.getVideoId(video.url);
@@ -62,18 +61,19 @@ export function wireAvatarFallback(card, video) {
   );
 }
 
-export async function loadMissingChannelAvatar(card, video) {
+export async function loadMissingChannelAvatar(card, video, loadAvatar) {
   const currentAvatar = card.querySelector(".watchtube-avatar");
 
   if (
     !currentAvatar ||
     currentAvatar instanceof HTMLImageElement ||
-    !video.channelUrl
+    !video.channelUrl ||
+    typeof loadAvatar !== "function"
   ) {
     return;
   }
 
-  const avatarUrl = await api.getChannelAvatarUrl(video.channelUrl);
+  const avatarUrl = await loadAvatar(video.channelUrl);
 
   if (!avatarUrl || !card.isConnected || !(await canLoadImage(avatarUrl))) {
     return;
@@ -82,7 +82,6 @@ export async function loadMissingChannelAvatar(card, video) {
   const avatar = document.createElement("img");
 
   avatar.className = "watchtube-avatar";
-
   avatar.alt = "";
   avatar.src = avatarUrl;
 
@@ -103,7 +102,9 @@ function createAvatarPlaceholderElement(video) {
   const placeholder = document.createElement("div");
 
   placeholder.className = "watchtube-avatar";
+
   placeholder.setAttribute("aria-hidden", "true");
+
   placeholder.textContent = getChannelInitial(video);
 
   return placeholder;
@@ -116,32 +117,32 @@ function getChannelInitial(video) {
 }
 
 async function canLoadImage(url, retries = 2) {
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        const loaded = await tryLoadImage(url);
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const loaded = await tryLoadImage(url);
 
-        if (loaded) {
-            return true;
-        }
-
-        await delay(250);
+    if (loaded) {
+      return true;
     }
 
-    return false;
+    await delay(250);
+  }
+
+  return false;
 }
 
 function tryLoadImage(url) {
-    return new Promise((resolve) => {
-        const img = new Image();
+  return new Promise((resolve) => {
+    const img = new Image();
 
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
 
-        img.src = url;
-    });
+    img.src = url;
+  });
 }
 
 function delay(ms) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }

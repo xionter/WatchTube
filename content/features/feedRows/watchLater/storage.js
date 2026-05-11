@@ -1,4 +1,4 @@
-import * as constants from "../../core/constants.js";
+import * as constants from "../../../core/constants.js";
 import * as api from "./api.js";
 
 export async function readSettings() {
