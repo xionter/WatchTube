@@ -11,11 +11,6 @@ export function resetRenderState() {
 }
 
 export function renderFeedRow(grid, { rowId, title, videos }) {
-  console.log("renderFeedRow", {
-    rowId,
-    title,
-    videos,
-  });
   const existingItems = Array.from(
     document.querySelectorAll(`[data-watchtube-row="${rowId}"]`),
   );
@@ -50,10 +45,6 @@ export function renderFeedRow(grid, { rowId, title, videos }) {
 
 function replaceFeedRow(grid, { rowId, title, videos }) {
   renderInProgress = true;
-  console.log("replaceFeedRow", {
-    rowId,
-    videos,
-  });
   removeFeedRow(rowId);
 
   grid.classList.add("watchtube-grid");
@@ -62,15 +53,8 @@ function replaceFeedRow(grid, { rowId, title, videos }) {
     .shuffle([...videos])
     .slice(0, constants.MAX_FIRST_ROW_VIDEOS);
 
-  console.log("picks", picks);
-  const items = picks.map((video) => {
-    return createGridItem(video, rowId, title);
-  });
-  console.log("items", items);
-
   const firstFeedItem = findFirstFeedItem(grid);
-  console.log("firstFeedItem", firstFeedItem);
-  console.log("grid children", [...grid.children]);
+
   grid.insertBefore(
     createShuffleButton(grid, {
       rowId,
@@ -80,14 +64,12 @@ function replaceFeedRow(grid, { rowId, title, videos }) {
     firstFeedItem,
   );
   for (const item of items) {
-    console.log("inserting item", item);
     grid.insertBefore(item, firstFeedItem);
   }
   renderInProgress = false;
 }
 
 export function removeFeedRow(rowId) {
-  console.log("removeFeedRow", rowId);
   document
     .querySelectorAll(`[data-watchtube-row="${rowId}"]`)
     .forEach((node) => node.remove());

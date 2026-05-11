@@ -119,15 +119,6 @@ async function refreshPage() {
 
       return;
     }
-    console.log("WatchTube refreshPage");
-
-    console.log({
-      isHomePage: youtube.isHomePage(),
-      settings,
-      grid,
-    });
-
-    console.log("videos", videos);
     feedRowRenderer.renderFeedRow(grid, {
       rowId: "watch-later",
       title: "Watch Later",
