@@ -53,6 +53,9 @@ function replaceFeedRow(grid, { rowId, title, videos }) {
     .shuffle([...videos])
     .slice(0, constants.MAX_FIRST_ROW_VIDEOS);
 
+  const items = picks.map((video) => {
+    return createGridItem(video, rowId, title);
+  });
   const firstFeedItem = findFirstFeedItem(grid);
 
   grid.insertBefore(
