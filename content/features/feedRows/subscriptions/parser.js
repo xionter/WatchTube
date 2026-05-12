@@ -18,31 +18,42 @@ export function extractInitialData(html) {
 }
 
 export function findVideoRenderers(json) {
-  const tabs = utils.getValue(
-    json,
-    ["contents", "twoColumnBrowseResultsRenderer", "tabs"],
-    [],
-  );
+  const results = [];
 
-  const selectedTab = tabs.find(
-    (tab) => tab?.tabRenderer?.selected,
-  );
+  walk(json, (value) => {
+    const renderer =
+      value?.richItemRenderer?.content?.videoRenderer ||
+      value?.videoRenderer;
 
-  return utils.getValue(
-    selectedTab,
-    [
-      "tabRenderer",
-      "content",
-      "richGridRenderer",
-      "contents",
-    ],
-    [],
-  );
+    if (renderer?.videoId) {
+      results.push(renderer);
+    }
+  });
+
+  return results;
 }
 
-export function extractVideo(item) {
-  const video = item?.richItemRenderer?.content?.videoRenderer;
+function walk(value, callback) {
+  if (!value || typeof value !== "object") {
+    return;
+  }
 
+  callback(value);
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      walk(item, callback);
+    }
+
+    return;
+  }
+
+  for (const child of Object.values(value)) {
+    walk(child, callback);
+  }
+}
+
+export function extractVideo(video) {
   if (!video?.videoId) {
     return null;
   }

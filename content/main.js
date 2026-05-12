@@ -99,8 +99,9 @@ async function refreshPage() {
 
         applyShortsVisibility(settings.hideShorts);
 
-        if (!settings.showWatchLater || !youtube.isHomePage()) {
+        if (!youtube.isHomePage()) {
             clearWatchLater();
+            clearSubscriptions();
 
             return;
         }
@@ -113,23 +114,27 @@ async function refreshPage() {
             return;
         }
 
-        const videos = await watchLater.storage.getWatchLaterVideos();
+        if (settings.showWatchLater) {
+            const videos =
+                await watchLater.storage.getWatchLaterVideos();
 
-        if (!videos.length) {
+            if (videos.length) {
+                feedRowRenderer.renderFeedRow(grid, {
+                    rowId: "watch-later",
+                    title: "Watch Later",
+                    videos,
+                    loadAvatar:
+                    watchLater.api.getChannelAvatarUrl,
+                });
+            }
+        } else {
             clearWatchLater();
-
-            return;
         }
-        feedRowRenderer.renderFeedRow(grid, {
-            rowId: "watch-later",
-            title: "Watch Later",
-            videos,
-            loadAvatar: watchLater.api.getChannelAvatarUrl,
-        });
+
         if (settings.showSubscriptions) {
             const subscriptionVideos =
                 await subscriptions.storage.getSubscriptionVideos();
-
+            console.log(subscriptionVideos);
             if (subscriptionVideos.length) {
                 feedRowRenderer.renderFeedRow(grid, {
                     rowId: "subscriptions",
@@ -139,6 +144,8 @@ async function refreshPage() {
                     watchLater.api.getChannelAvatarUrl,
                 });
             }
+        } else {
+            clearSubscriptions();
         }
     })();
 
@@ -184,6 +191,10 @@ function containsRelevantMutation(nodes) {
 
 function clearWatchLater() {
     feedRowRenderer.removeFeedRow("watch-later");
+    feedRowRenderer.resetRenderState();
+}
 
+function clearSubscriptions() {
+    feedRowRenderer.removeFeedRow("subscriptions");
     feedRowRenderer.resetRenderState();
 }

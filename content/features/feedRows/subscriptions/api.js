@@ -24,7 +24,8 @@ export async function fetchSubscriptionVideos() {
   const videos = [];
 
   for (const item of contents) {
-    const video = parser.extractVideo(item);
+        const video = parser.extractVideo(videoRenderer);
+
 
     if (video) {
       videos.push(video);
