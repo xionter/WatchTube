@@ -2,12 +2,9 @@ import * as constants from "../../../core/constants.js";
 import * as parser from "./parser.js";
 
 export async function fetchSubscriptionVideos() {
-  const response = await fetch(
-    constants.SUBSCRIPTIONS_URL,
-    {
-      credentials: "include",
-    },
-  );
+  const response = await fetch(constants.SUBSCRIPTIONS_URL, {
+    credentials: "include",
+  });
 
   if (!response.ok) {
     throw new Error(
@@ -24,8 +21,7 @@ export async function fetchSubscriptionVideos() {
   const videos = [];
 
   for (const item of contents) {
-        const video = parser.extractVideo(videoRenderer);
-
+    const video = parser.extractVideo(item);
 
     if (video) {
       videos.push(video);

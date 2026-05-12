@@ -20,8 +20,7 @@ export async function getSubscriptionVideos() {
   }
 
   try {
-    const items =
-      await api.fetchSubscriptionVideos();
+    const items = await api.fetchSubscriptionVideos();
 
     await chrome.storage.local.set({
       [CACHE_KEY]: {
@@ -32,10 +31,7 @@ export async function getSubscriptionVideos() {
 
     return items;
   } catch (error) {
-    console.warn(
-      "WatchTube: failed to refresh subscriptions",
-      error,
-    );
+    console.warn("WatchTube: failed to refresh subscriptions", error);
 
     return cache?.items || [];
   }

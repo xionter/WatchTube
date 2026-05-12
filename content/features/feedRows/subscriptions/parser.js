@@ -21,12 +21,66 @@ export function findVideoRenderers(json) {
   const results = [];
 
   walk(json, (value) => {
-    const renderer =
-      value?.richItemRenderer?.content?.videoRenderer ||
-      value?.videoRenderer;
+    const richItem = value?.richItemRenderer;
 
-    if (renderer?.videoId) {
-      results.push(renderer);
+    const videoRenderer =
+      richItem?.content?.videoRenderer || value?.videoRenderer;
+
+    if (videoRenderer?.videoId) {
+      results.push(videoRenderer);
+
+      return;
+    }
+
+    const lockup = richItem?.content?.lockupViewModel;
+
+    if (
+      lockup?.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" &&
+      lockup?.contentId
+    ) {
+      results.push({
+        videoId: lockup.contentId,
+
+        title: {
+          runs: [
+            {
+              text:
+                lockup.metadata?.lockupMetadataViewModel?.title?.content ||
+                "Untitled",
+            },
+          ],
+        },
+
+        ownerText: {
+          runs: [
+            {
+              text:
+                lockup.metadata?.lockupMetadataViewModel?.metadata
+                  ?.contentMetadataViewModel?.metadataRows?.[0]
+                  ?.metadataParts?.[0]?.text?.content || "YouTube",
+
+              navigationEndpoint: {
+                commandMetadata: {
+                  webCommandMetadata: {
+                    url:
+                      lockup.rendererContext?.commandContext?.onTap
+                        ?.innertubeCommand?.browseEndpoint?.canonicalBaseUrl ||
+                      "",
+                  },
+                },
+              },
+            },
+          ],
+        },
+
+        navigationEndpoint: {
+          commandMetadata: {
+            webCommandMetadata: {
+              url: `/watch?v=${lockup.contentId}`,
+            },
+          },
+        },
+      });
     }
   });
 
@@ -59,19 +113,11 @@ export function extractVideo(video) {
   }
 
   return {
-    title: utils.getValue(
-      video,
-      ["title", "runs", 0, "text"],
-      "Untitled",
-    ),
+    title: utils.getValue(video, ["title", "runs", 0, "text"], "Untitled"),
 
     url: `https://www.youtube.com/watch?v=${video.videoId}`,
 
-    channel: utils.getValue(
-      video,
-      ["ownerText", "runs", 0, "text"],
-      "YouTube",
-    ),
+    channel: utils.getValue(video, ["ownerText", "runs", 0, "text"], "YouTube"),
 
     channelUrl: getChannelUrl(video),
 
@@ -91,12 +137,7 @@ function getChannelUrl(video) {
       endpoint,
       ["commandMetadata", "webCommandMetadata", "url"],
       "",
-    ) ||
-    utils.getValue(
-      endpoint,
-      ["browseEndpoint", "canonicalBaseUrl"],
-      "",
-    );
+    ) || utils.getValue(endpoint, ["browseEndpoint", "canonicalBaseUrl"], "");
 
   return utils.normalizeYouTubeUrl(path);
 }

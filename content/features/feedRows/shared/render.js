@@ -49,32 +49,44 @@ function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
   renderInProgress = true;
 
   try {
-    removeFeedRow(rowId);
-
     grid.classList.add("watchtube-grid");
+
+    let section = grid.querySelector(
+      `.watchtube-section[data-watchtube-row="${rowId}"]`,
+    );
+
+    if (!section) {
+      section = document.createElement("div");
+
+      section.className = "watchtube-section";
+      section.dataset.watchtubeRow = rowId;
+
+      const firstFeedItem = findFirstFeedItem(grid);
+
+      if (firstFeedItem) {
+        grid.insertBefore(section, firstFeedItem);
+      } else {
+        grid.prepend(section);
+      }
+    }
+
+    section.innerHTML = "";
+
+    const button = createShuffleButton(grid, {
+      rowId,
+      title,
+      videos,
+      loadAvatar,
+    });
+
+    section.append(button);
 
     const picks = utils
       .shuffle([...videos])
       .slice(0, constants.MAX_FIRST_ROW_VIDEOS);
 
-    const items = picks.map((video) => {
-      return createGridItem(video, rowId, title, loadAvatar);
-    });
-
-    const firstFeedItem = findFirstFeedItem(grid);
-
-    grid.insertBefore(
-      createShuffleButton(grid, {
-        rowId,
-        title,
-        videos,
-        loadAvatar,
-      }),
-      firstFeedItem,
-    );
-
-    for (const item of items) {
-      grid.insertBefore(item, firstFeedItem);
+    for (const video of picks) {
+      section.append(createGridItem(video, rowId, title, loadAvatar));
     }
   } catch (error) {
     console.error("WATCHTUBE RENDER FAILED", error);
@@ -85,8 +97,10 @@ function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
 
 export function removeFeedRow(rowId) {
   document
-    .querySelectorAll(`[data-watchtube-row="${rowId}"]`)
-    .forEach((node) => node.remove());
+    .querySelectorAll(`.watchtube-section[data-watchtube-row="${rowId}"]`)
+    .forEach((node) => {
+      node.remove();
+    });
 }
 
 function findFirstFeedItem(grid) {
@@ -94,7 +108,7 @@ function findFirstFeedItem(grid) {
 }
 
 function createGridItem(video, rowId, title, loadAvatar) {
-  const item = document.createElement("ytd-rich-item-renderer");
+  const item = document.createElement("div");
 
   item.className = "watchtube-item";
   item.dataset.watchtubeRow = rowId;
