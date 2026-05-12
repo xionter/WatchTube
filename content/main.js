@@ -123,6 +123,7 @@ async function refreshPage() {
       rowId: "watch-later",
       title: "Watch Later",
       videos,
+        loadAvatar: watchLater.api.getChannelAvatarUrl,
     });
   })();
 
