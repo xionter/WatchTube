@@ -170,19 +170,14 @@
 
 .watchtube-section {
   position: relative;
-
   display: grid;
-
   grid-template-columns: repeat(3, minmax(0, 1fr));
 
   gap: 16px;
-
   margin-bottom: 36px;
-
-  padding-top: 52px;
+  padding-top: 18px;
 }
 
 .watchtube-section .watchtube-shuffle {
-  top: 0;
   right: 0;
 }

@@ -132,12 +132,17 @@ function getChannelUrl(video) {
     null,
   );
 
-  const path =
-    utils.getValue(
-      endpoint,
-      ["commandMetadata", "webCommandMetadata", "url"],
-      "",
-    ) || utils.getValue(endpoint, ["browseEndpoint", "canonicalBaseUrl"], "");
+  const commandUrl = utils.getValue(
+    endpoint,
+    ["commandMetadata", "webCommandMetadata", "url"],
+    "",
+  );
 
-  return utils.normalizeYouTubeUrl(path);
+  const browseUrl = utils.getValue(
+    endpoint,
+    ["browseEndpoint", "canonicalBaseUrl"],
+    "",
+  );
+
+  return utils.normalizeYouTubeUrl(commandUrl || browseUrl);
 }
