@@ -2,23 +2,30 @@
 
 const DEFAULT_SETTINGS = {
   showWatchLater: true,
+  showSubscriptions: true,
   hideShorts: false,
 };
 
 const WATCH_LATER_URL = "https://www.youtube.com/playlist?list=WL";
 
+const SUBSCRIPTIONS_URL = "https://www.youtube.com/feed/subscriptions";
+
 const elements = {
   controls: {
     showWatchLater: document.querySelector("#showWatchLater"),
+    showSubscriptions: document.querySelector("#showSubscriptions"),
     hideShorts: document.querySelector("#hideShorts"),
   },
 
   states: {
     showWatchLater: document.querySelector("#showWatchLaterState"),
+    showSubscriptions: document.querySelector("#showSubscriptionsState"),
     hideShorts: document.querySelector("#hideShortsState"),
   },
 
   openWatchLaterButton: document.querySelector("#openWatchLater"),
+
+  openSubscriptionsButton: document.querySelector("#openSubscriptions"),
 };
 
 main().catch(handleError);
@@ -38,13 +45,20 @@ async function main() {
     "click",
     openWatchLaterPlaylist,
   );
+
+  elements.openSubscriptionsButton.addEventListener(
+    "click",
+    openSubscriptionsFeed,
+  );
 }
 
 function assertUi() {
   const requiredElements = [
     ...Object.values(elements.controls),
     ...Object.values(elements.states),
+
     elements.openWatchLaterButton,
+    elements.openSubscriptionsButton,
   ];
 
   if (requiredElements.some((element) => !element)) {
@@ -72,6 +86,7 @@ function updateControls(settings) {
     const enabled = settings[key];
 
     control.checked = enabled;
+
     elements.states[key].textContent = enabled ? "On" : "Off";
   }
 }
@@ -81,6 +96,10 @@ function updateStatus(settings) {
 
   if (settings.showWatchLater) {
     enabledFeatures.push("Watch Later in the first row");
+  }
+
+  if (settings.showSubscriptions) {
+    enabledFeatures.push("Subscription videos in the second row");
   }
 
   if (settings.hideShorts) {
@@ -106,6 +125,12 @@ async function handleSettingsChange() {
 async function openWatchLaterPlaylist() {
   await chrome.tabs.create({
     url: WATCH_LATER_URL,
+  });
+}
+
+async function openSubscriptionsFeed() {
+  await chrome.tabs.create({
+    url: SUBSCRIPTIONS_URL,
   });
 }
 
