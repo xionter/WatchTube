@@ -136,6 +136,13 @@ const [videos, subscriptionVideos] = await Promise.all([
     ? subscriptions.storage.getSubscriptionVideos()
     : Promise.resolve([]),
 ]);
+if (!videos.length) {
+  clearWatchLater();
+}
+
+if (!subscriptionVideos.length) {
+  clearSubscriptions();
+}
 
     if (settings.showWatchLater) {
       if (videos.length) {

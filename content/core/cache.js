@@ -16,7 +16,7 @@ export async function getCached({ key, ttl, version, fetcher }) {
     Array.isArray(cache.items) &&
     cache.items.length &&
     now - cache.updatedAt < ttl &&
-    (version == null || cache.version === version);
+        cache.version === version;
 
   if (isValid) {
     return cache.items;
