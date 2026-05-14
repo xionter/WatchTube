@@ -161,12 +161,9 @@ function createShuffleButton(grid, { rowId, title, videos, loadAvatar }) {
 }
 
 function createCard(video, title, loadAvatar) {
-  const card = document.createElement("a");
+  const card = document.createElement("div");
 
   card.className = "watchtube-card";
-
-  card.href = video.url;
-  card.rel = "noreferrer";
 
   const channelAvatar = avatar.findVisibleChannelAvatar(video);
 
@@ -175,25 +172,41 @@ function createCard(video, title, loadAvatar) {
     : avatar.createAvatarPlaceholderMarkup(video);
 
   card.innerHTML = `
-        <div class="watchtube-thumb-wrap">
-            <img
-                class="watchtube-thumb"
-                src="${utils.escapeHtml(video.thumbnail)}"
-                alt=""
-            >
-        </div>
+        <a
+            class="watchtube-video-link"
+            href="${utils.escapeHtml(video.url)}"
+            rel="noreferrer"
+        >
+            <div class="watchtube-thumb-wrap">
+                <img
+                    class="watchtube-thumb"
+                    src="${utils.escapeHtml(video.thumbnail)}"
+                    alt=""
+                >
+            </div>
+        </a>
 
         <div class="watchtube-meta">
             ${avatarMarkup}
 
             <div class="watchtube-copy">
-                <div class="watchtube-card-title">
-                    ${utils.escapeHtml(video.title)}
-                </div>
+                <a
+                    class="watchtube-video-link"
+                    href="${utils.escapeHtml(video.url)}"
+                    rel="noreferrer"
+                >
+                    <div class="watchtube-card-title">
+                        ${utils.escapeHtml(video.title)}
+                    </div>
+                </a>
 
-                <div class="watchtube-card-channel">
+                <a
+                    class="watchtube-card-channel"
+                    href="${utils.escapeHtml(video.channelUrl || "#")}"
+                    rel="noreferrer"
+                >
                     ${utils.escapeHtml(video.channel)}
-                </div>
+                </a>
 
                 <div class="watchtube-card-source">
                     ${utils.escapeHtml(title)}

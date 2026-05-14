@@ -183,3 +183,32 @@
 .watchtube-section .watchtube-shuffle {
   right: 0;
 }
+
+.watchtube-video-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.watchtube-card-channel {
+  display: block;
+
+  overflow: hidden;
+
+  color: #aaaaaa !important;
+
+  font-family: Roboto, Arial, sans-serif;
+
+  font-size: 1.4rem;
+  line-height: 2rem;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  margin-top: 4px;
+
+  text-decoration: none;
+}
+
+.watchtube-card-channel:hover {
+  color: #ffffff !important;
+}
