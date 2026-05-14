@@ -11,10 +11,7 @@ export function resetRenderState() {
   lastRenderedSignatures.clear();
 }
 
-export function renderFeedRow(
-  grid,
-  { rowId, title, videos, loadAvatar },
-) {
+export function renderFeedRow(grid, { rowId, title, videos, loadAvatar }) {
   const existingItems = Array.from(
     document.querySelectorAll(`[data-watchtube-row="${rowId}"]`),
   );
@@ -48,10 +45,7 @@ export function renderFeedRow(
   lastRenderedSignatures.set(rowId, signature);
 }
 
-function replaceFeedRow(
-  grid,
-  { rowId, title, videos, loadAvatar },
-) {
+function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
   renderInProgress = true;
 
   try {
@@ -92,9 +86,8 @@ function replaceFeedRow(
       .slice(0, constants.MAX_FIRST_ROW_VIDEOS);
 
     for (const video of picks) {
-      section.append(
-        createGridItem(video, rowId, title, loadAvatar),
-      );
+      console.log(video);
+      section.append(createGridItem(video, rowId, title, loadAvatar));
     }
   } catch (error) {
     console.error("WATCHTUBE RENDER FAILED", error);
@@ -112,17 +105,10 @@ export function removeFeedRow(rowId) {
 }
 
 function findFirstFeedItem(grid) {
-  return [...grid.children].find(
-    (child) => !isWatchTubeNode(child),
-  ) || null;
+  return [...grid.children].find((child) => !isWatchTubeNode(child)) || null;
 }
 
-function createGridItem(
-  video,
-  rowId,
-  title,
-  loadAvatar,
-) {
+function createGridItem(video, rowId, title, loadAvatar) {
   const item = document.createElement("div");
 
   item.className = "watchtube-item";
@@ -133,10 +119,7 @@ function createGridItem(
   return item;
 }
 
-function createShuffleButton(
-  grid,
-  { rowId, title, videos, loadAvatar },
-) {
+function createShuffleButton(grid, { rowId, title, videos, loadAvatar }) {
   const button = document.createElement("button");
 
   button.className = "watchtube-shuffle";
@@ -183,8 +166,7 @@ function createCard(video, title, loadAvatar) {
 
   card.className = "watchtube-card";
 
-  const channelAvatar =
-    avatar.findVisibleChannelAvatar(video);
+  const channelAvatar = avatar.findVisibleChannelAvatar(video);
 
   const avatarMarkup = channelAvatar
     ? avatar.createAvatarImageMarkup(channelAvatar)
@@ -236,11 +218,7 @@ function createCard(video, title, loadAvatar) {
 
   avatar.wireAvatarFallback(card, video);
 
-  void avatar.loadMissingChannelAvatar(
-    card,
-    video,
-    loadAvatar,
-  );
+  void avatar.loadMissingChannelAvatar(card, video, loadAvatar);
 
   return card;
 }
@@ -252,8 +230,8 @@ export function isWatchTubeNode(node) {
 
   return Boolean(
     node.closest("[data-watchtube-row]") ||
-      node.classList.contains("watchtube-shuffle") ||
-      node.closest(".watchtube-shuffle"),
+    node.classList.contains("watchtube-shuffle") ||
+    node.closest(".watchtube-shuffle"),
   );
 }
 
@@ -266,4 +244,7 @@ function buildRenderSignature(videos) {
 
 export function isRenderInProgress() {
   return renderInProgress;
+}
+export function clearRenderState(rowId) {
+  lastRenderedSignatures.delete(rowId);
 }

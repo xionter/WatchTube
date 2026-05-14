@@ -1,164 +1,201 @@
 import * as utils from "../../../core/utils.js";
 
 export function extractInitialData(html) {
-    const patterns = [
-        /var ytInitialData\s*=\s*(.*?);<\/script>/s,
-        /window\["ytInitialData"\]\s*=\s*(.*?);<\/script>/s,
-    ];
+  const patterns = [
+    /var ytInitialData\s*=\s*(\{.*?\})\s*;<\/script>/s,
+    /window\["ytInitialData"\]\s*=\s*(\{.*?\})\s*;<\/script>/s,
+  ];
 
-    for (const pattern of patterns) {
-        const match = html.match(pattern);
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
 
-        if (match?.[1]) {
-            return JSON.parse(match[1]);
-        }
+    if (match?.[1]) {
+      return JSON.parse(match[1]);
     }
+  }
 
-    throw new Error("ytInitialData not found");
+  throw new Error("ytInitialData not found");
 }
 
 export function findVideoRenderers(json) {
-    const results = [];
+  const results = [];
 
-    walk(json, (value) => {
-        const richItem = value?.richItemRenderer;
+  walk(json, (value) => {
+    const richItem = value?.richItemRenderer;
 
-        const videoRenderer =
-            richItem?.content?.videoRenderer || value?.videoRenderer;
+    const videoRenderer =
+      richItem?.content?.videoRenderer || value?.videoRenderer;
 
-        if (videoRenderer?.videoId) {
-            results.push(videoRenderer);
+    if (videoRenderer?.videoId) {
+      results.push(videoRenderer);
 
-            return;
-        }
+      return;
+    }
 
-        const lockup = richItem?.content?.lockupViewModel;
+    const lockup = richItem?.content?.lockupViewModel;
 
-        if (
-            lockup?.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" &&
-            lockup?.contentId
-        ) {
-            results.push({
-                videoId: lockup.contentId,
+    if (
+      lockup?.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" &&
+      lockup?.contentId
+    ) {
+      const metadata = lockup.metadata?.lockupMetadataViewModel;
 
-                title: {
-                    runs: [
-                        {
-                            text:
-                            lockup.metadata?.lockupMetadataViewModel?.title?.content ||
-                            "Untitled",
-                        },
-                    ],
-                },
+      const channelCommand = findBrowseEndpoint(metadata);
+      console.log("LOCKUP METADATA", metadata);
+      results.push({
+        videoId: lockup.contentId,
 
-                ownerText: {
-                    runs: [
-                        {
-                            text:
-                            lockup.metadata?.lockupMetadataViewModel?.metadata
-                            ?.contentMetadataViewModel?.metadataRows?.[0]
-                            ?.metadataParts?.[0]?.text?.content || "YouTube",
-                        },
-                    ],
-                },
+        title: {
+          runs: [
+            {
+              text: metadata?.title?.content || "Untitled",
+            },
+          ],
+        },
 
-                directChannelUrl: findRenderedChannelUrl(lockup.contentId),
-                avatar: findRenderedAvatar(lockup.contentId),
-                navigationEndpoint: {
-                    commandMetadata: {
-                        webCommandMetadata: {
-                            url: `/watch?v=${lockup.contentId}`,
-                        },
-                    },
-                },
-            });
+        ownerText: {
+          runs: [
+            {
+              text:
+                metadata?.metadata?.contentMetadataViewModel?.metadataRows?.[0]
+                  ?.metadataParts?.[0]?.text?.content || "YouTube",
 
-        }
-    });
+              navigationEndpoint: channelCommand || null,
+            },
+          ],
+        },
 
-    return results;
+        avatar:
+          metadata?.image?.decoratedAvatarViewModel?.avatar?.avatarViewModel
+            ?.image?.sources?.[0]?.url || "",
+
+        navigationEndpoint: {
+          commandMetadata: {
+            webCommandMetadata: {
+              url: `/watch?v=${lockup.contentId}`,
+            },
+          },
+        },
+      });
+    }
+  });
+
+  return results;
+}
+function findBrowseEndpoint(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  if (value.browseEndpoint || value.commandMetadata?.webCommandMetadata?.url) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findBrowseEndpoint(item);
+
+      if (found) {
+        return found;
+      }
+    }
+
+    return null;
+  }
+
+  for (const child of Object.values(value)) {
+    const found = findBrowseEndpoint(child);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
 }
 
 function walk(value, callback) {
-    if (!value || typeof value !== "object") {
-        return;
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  callback(value);
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      walk(item, callback);
     }
 
-    callback(value);
+    return;
+  }
 
-    if (Array.isArray(value)) {
-        for (const item of value) {
-            walk(item, callback);
-        }
-
-        return;
-    }
-
-    for (const child of Object.values(value)) {
-        walk(child, callback);
-    }
+  for (const child of Object.values(value)) {
+    walk(child, callback);
+  }
 }
 
 export function extractVideo(video) {
-    if (!video?.videoId) {
-        return null;
-    }
-    
-    console.log(video);
-    return {
-        title: utils.getValue(video, ["title", "runs", 0, "text"], "Untitled"),
+  if (!video?.videoId) {
+    return null;
+  }
 
-        url: `https://www.youtube.com/watch?v=${video.videoId}`,
+  return {
+    title: utils.getValue(video, ["title", "runs", 0, "text"], "Untitled"),
 
-        channel: utils.getValue(video, ["ownerText", "runs", 0, "text"], "YouTube"),
+    url: `https://www.youtube.com/watch?v=${video.videoId}`,
 
-        channelUrl: video.directChannelUrl
-        ? utils.normalizeYouTubeUrl(video.directChannelUrl)
-        : getChannelUrl(video),
+    channel: utils.getValue(video, ["ownerText", "runs", 0, "text"], "YouTube"),
 
-        thumbnail: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
-        avatar: video.avatar || getAvatarUrl(video),
-    };
+    channelUrl: getChannelUrl(video),
+
+    thumbnail: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
+
+    avatar: video.avatar || getAvatarUrl(video),
+  };
 }
 
 function getChannelUrl(video) {
-    const endpoint = utils.getValue(
-        video,
-        ["ownerText", "runs", 0, "navigationEndpoint"],
-        null,
-    );
+  let endpoint = utils.getValue(
+    video,
+    ["ownerText", "runs", 0, "navigationEndpoint"],
+    null,
+  );
 
-    const commandUrl = utils.getValue(
-        endpoint,
-        ["commandMetadata", "webCommandMetadata", "url"],
-        "",
-    );
+  if (!endpoint) {
+    return "";
+  }
 
-    const browseUrl = utils.getValue(
-        endpoint,
-        ["browseEndpoint", "canonicalBaseUrl"],
-        "",
-    );
+  if (endpoint.innertubeCommand) {
+    endpoint = endpoint.innertubeCommand;
+  }
 
-    return utils.normalizeYouTubeUrl(commandUrl || browseUrl);
-}
+  const canonical = utils.getValue(
+    endpoint,
+    ["browseEndpoint", "canonicalBaseUrl"],
+    "",
+  );
 
-function findRenderedChannelUrl(videoId) {
-    const anchor = document.querySelector(
-        `.content-id-${videoId} a[href^="/@"],
-         .content-id-${videoId} a[href^="/channel/"]`,
-    );
+  if (canonical) {
+    return utils.normalizeYouTubeUrl(canonical);
+  }
 
-    return anchor?.getAttribute("href") || "";
-}
+  const commandUrl = utils.getValue(
+    endpoint,
+    ["commandMetadata", "webCommandMetadata", "url"],
+    "",
+  );
 
-function findRenderedAvatar(videoId) {
-    const image = document.querySelector(
-        `.content-id-${videoId} yt-avatar-shape img,
-         .content-id-${videoId} #avatar img`,
-    );
+  if (commandUrl) {
+    return utils.normalizeYouTubeUrl(commandUrl);
+  }
 
-    return image?.src || "";
+  const browseId = utils.getValue(endpoint, ["browseEndpoint", "browseId"], "");
+
+  if (browseId.startsWith("UC")) {
+    return `https://www.youtube.com/channel/${browseId}`;
+  }
+
+  return "";
 }
 
 export function getAvatarUrl(video) {

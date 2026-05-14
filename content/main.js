@@ -187,10 +187,10 @@ function containsRelevantMutation(nodes) {
 
 function clearWatchLater() {
   feedRowRenderer.removeFeedRow("watch-later");
-  feedRowRenderer.resetRenderState();
+  feedRowRenderer.clearRenderState("watch-later");
 }
 
 function clearSubscriptions() {
   feedRowRenderer.removeFeedRow("subscriptions");
-  feedRowRenderer.resetRenderState();
+  feedRowRenderer.clearRenderState("subscriptions");
 }

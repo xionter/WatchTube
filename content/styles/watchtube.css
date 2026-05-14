@@ -176,7 +176,7 @@
   gap: 16px;
   margin-bottom: 36px;
   padding-top: 18px;
-    grid-column: 1 / -1;
+  grid-column: 1 / -1;
   width: 100%;
 }
 

@@ -4,7 +4,7 @@ export function findVisibleChannelAvatar(video) {
 }
 
 export function createAvatarImageMarkup(src) {
-    return `
+  return `
         <img
     class="watchtube-avatar"
     src="${utils.escapeHtml(src)}"
@@ -14,7 +14,7 @@ export function createAvatarImageMarkup(src) {
 }
 
 export function createAvatarPlaceholderMarkup(video) {
-    return `
+  return `
         <div
     class="watchtube-avatar"
     aria-hidden="true"
@@ -25,105 +25,105 @@ export function createAvatarPlaceholderMarkup(video) {
 }
 
 export function wireAvatarFallback(card, video) {
-    const avatar = card.querySelector(".watchtube-avatar");
+  const avatar = card.querySelector(".watchtube-avatar");
 
-    if (!(avatar instanceof HTMLImageElement)) {
-        return;
-    }
+  if (!(avatar instanceof HTMLImageElement)) {
+    return;
+  }
 
-    avatar.addEventListener(
-        "error",
-        () => {
-            avatar.replaceWith(createAvatarPlaceholderElement(video));
-        },
-        {
-            once: true,
-        },
-    );
+  avatar.addEventListener(
+    "error",
+    () => {
+      avatar.replaceWith(createAvatarPlaceholderElement(video));
+    },
+    {
+      once: true,
+    },
+  );
 }
 
 export async function loadMissingChannelAvatar(card, video, loadAvatar) {
-    const currentAvatar = card.querySelector(".watchtube-avatar");
+  const currentAvatar = card.querySelector(".watchtube-avatar");
 
-    if (
-        !currentAvatar ||
-        currentAvatar instanceof HTMLImageElement ||
-        !video.channelUrl ||
-        typeof loadAvatar !== "function"
-    ) {
-        return;
-    }
+  if (
+    !currentAvatar ||
+    currentAvatar instanceof HTMLImageElement ||
+    !video.channelUrl ||
+    typeof loadAvatar !== "function"
+  ) {
+    return;
+  }
 
-    const avatarUrl = await loadAvatar(video.channelUrl);
+  const avatarUrl = await loadAvatar(video.channelUrl);
 
-    if (!avatarUrl || !card.isConnected || !(await canLoadImage(avatarUrl))) {
-        return;
-    }
+  if (!avatarUrl || !card.isConnected || !(await canLoadImage(avatarUrl))) {
+    return;
+  }
 
-    const avatar = document.createElement("img");
+  const avatar = document.createElement("img");
 
-    avatar.className = "watchtube-avatar";
-    avatar.alt = "";
-    avatar.src = avatarUrl;
+  avatar.className = "watchtube-avatar";
+  avatar.alt = "";
+  avatar.src = avatarUrl;
 
-    avatar.addEventListener(
-        "error",
-        () => {
-            avatar.replaceWith(createAvatarPlaceholderElement(video));
-        },
-        {
-            once: true,
-        },
-    );
+  avatar.addEventListener(
+    "error",
+    () => {
+      avatar.replaceWith(createAvatarPlaceholderElement(video));
+    },
+    {
+      once: true,
+    },
+  );
 
-    currentAvatar.replaceWith(avatar);
+  currentAvatar.replaceWith(avatar);
 }
 
 function createAvatarPlaceholderElement(video) {
-    const placeholder = document.createElement("div");
+  const placeholder = document.createElement("div");
 
-    placeholder.className = "watchtube-avatar";
+  placeholder.className = "watchtube-avatar";
 
-    placeholder.setAttribute("aria-hidden", "true");
+  placeholder.setAttribute("aria-hidden", "true");
 
-    placeholder.textContent = getChannelInitial(video);
+  placeholder.textContent = getChannelInitial(video);
 
-    return placeholder;
+  return placeholder;
 }
 
 function getChannelInitial(video) {
-    const initial = (video.channel || "YouTube").trim().charAt(0).toUpperCase();
+  const initial = (video.channel || "YouTube").trim().charAt(0).toUpperCase();
 
-    return initial || "Y";
+  return initial || "Y";
 }
 
 async function canLoadImage(url, retries = 2) {
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        const loaded = await tryLoadImage(url);
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const loaded = await tryLoadImage(url);
 
-        if (loaded) {
-            return true;
-        }
-
-        await delay(250);
+    if (loaded) {
+      return true;
     }
 
-    return false;
+    await delay(250);
+  }
+
+  return false;
 }
 
 function tryLoadImage(url) {
-    return new Promise((resolve) => {
-        const img = new Image();
+  return new Promise((resolve) => {
+    const img = new Image();
 
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
 
-        img.src = url;
-    });
+    img.src = url;
+  });
 }
 
 function delay(ms) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
