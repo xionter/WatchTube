@@ -1,38 +1,58 @@
 import * as utils from "../../../core/utils.js";
 
 export function extractInitialData(html) {
-  const patterns = [
-    /var ytInitialData\s*=\s*(\{.*?\})\s*;<\/script>/s,
-    /window\["ytInitialData"\]\s*=\s*(\{.*?\})\s*;<\/script>/s,
+  const markers = [
+    "var ytInitialData = ",
+    'window["ytInitialData"] = ',
   ];
 
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
+  for (const marker of markers) {
+    const start = html.indexOf(marker);
 
-    if (match?.[1]) {
-      return JSON.parse(match[1]);
+    if (start === -1) {
+      continue;
     }
+
+    const jsonStart = start + marker.length;
+
+    const scriptEnd = html.indexOf("</script>", jsonStart);
+
+    if (scriptEnd === -1) {
+      continue;
+    }
+
+    let jsonText = html.slice(jsonStart, scriptEnd).trim();
+
+    if (jsonText.endsWith(";")) {
+      jsonText = jsonText.slice(0, -1);
+    }
+
+    return JSON.parse(jsonText);
   }
 
   throw new Error("ytInitialData not found");
 }
 
 export function findVideoRenderers(json) {
+  const contents = findRichGridContents(json);
+
   const results = [];
 
-  walk(json, (value) => {
-    const richItem = value?.richItemRenderer;
+  for (const item of contents) {
+    const richItem = item?.richItemRenderer;
 
-    const videoRenderer =
-      richItem?.content?.videoRenderer || value?.videoRenderer;
+    if (!richItem) {
+      continue;
+    }
+
+    const videoRenderer = richItem.content?.videoRenderer;
 
     if (videoRenderer?.videoId) {
       results.push(videoRenderer);
-
-      return;
+      continue;
     }
 
-    const lockup = richItem?.content?.lockupViewModel;
+    const lockup = richItem.content?.lockupViewModel;
 
     if (
       lockup?.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" &&
@@ -41,7 +61,7 @@ export function findVideoRenderers(json) {
       const metadata = lockup.metadata?.lockupMetadataViewModel;
 
       const channelCommand = findBrowseEndpoint(metadata);
-      console.log("LOCKUP METADATA", metadata);
+
       results.push({
         videoId: lockup.contentId,
 
@@ -78,10 +98,30 @@ export function findVideoRenderers(json) {
         },
       });
     }
-  });
+  }
 
   return results;
 }
+
+function findRichGridContents(json) {
+  return (
+    utils.getValue(
+      json,
+      [
+        "contents",
+        "twoColumnBrowseResultsRenderer",
+        "tabs",
+        0,
+        "tabRenderer",
+        "content",
+        "richGridRenderer",
+        "contents",
+      ],
+      [],
+    ) || []
+  );
+}
+
 function findBrowseEndpoint(value) {
   if (!value || typeof value !== "object") {
     return null;
@@ -112,26 +152,6 @@ function findBrowseEndpoint(value) {
   }
 
   return null;
-}
-
-function walk(value, callback) {
-  if (!value || typeof value !== "object") {
-    return;
-  }
-
-  callback(value);
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      walk(item, callback);
-    }
-
-    return;
-  }
-
-  for (const child of Object.values(value)) {
-    walk(child, callback);
-  }
 }
 
 export function extractVideo(video) {

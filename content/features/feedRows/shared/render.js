@@ -4,6 +4,7 @@ import * as avatar from "./avatar.js";
 
 const shuffleLocks = new Set();
 const lastRenderedSignatures = new Map();
+const sectionCache = new Map();
 
 let renderInProgress = false;
 
@@ -51,10 +52,12 @@ function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
   try {
     grid.classList.add("watchtube-grid");
 
-    let section = grid.querySelector(
-      `.watchtube-section[data-watchtube-row="${rowId}"]`,
-    );
-
+      let section = sectionCache.get(rowId);
+    
+      if (section && !section.isConnected) {
+  sectionCache.delete(rowId);
+  section = null;
+}
     if (!section) {
       section = document.createElement("div");
 
@@ -69,7 +72,7 @@ function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
         grid.prepend(section);
       }
     }
-
+    sectionCache.set(rowId, section);
     section.innerHTML = "";
 
     const button = createShuffleButton(grid, {
@@ -102,6 +105,7 @@ export function removeFeedRow(rowId) {
     .forEach((node) => {
       node.remove();
     });
+    sectionCache.delete(rowId);
 }
 
 function findFirstFeedItem(grid) {

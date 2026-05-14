@@ -56,9 +56,9 @@ export async function loadMissingChannelAvatar(card, video, loadAvatar) {
 
   const avatarUrl = await loadAvatar(video.channelUrl);
 
-  if (!avatarUrl || !card.isConnected || !(await canLoadImage(avatarUrl))) {
-    return;
-  }
+    if (!avatarUrl || !card.isConnected) {
+  return;
+}
 
   const avatar = document.createElement("img");
 
@@ -95,35 +95,4 @@ function getChannelInitial(video) {
   const initial = (video.channel || "YouTube").trim().charAt(0).toUpperCase();
 
   return initial || "Y";
-}
-
-async function canLoadImage(url, retries = 2) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const loaded = await tryLoadImage(url);
-
-    if (loaded) {
-      return true;
-    }
-
-    await delay(250);
-  }
-
-  return false;
-}
-
-function tryLoadImage(url) {
-  return new Promise((resolve) => {
-    const img = new Image();
-
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-
-    img.src = url;
-  });
-}
-
-function delay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }
