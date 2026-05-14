@@ -65,6 +65,7 @@ export async function fetchWatchLater() {
       channelUrl: parser.getChannelUrl(video),
 
       thumbnail: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
+        avatar: parser.getAvatarUrl(video),
     });
   }
 

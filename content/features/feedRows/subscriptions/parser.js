@@ -63,7 +63,7 @@ export function findVideoRenderers(json) {
                 },
 
                 directChannelUrl: findRenderedChannelUrl(lockup.contentId),
-
+                avatar: findRenderedAvatar(lockup.contentId),
                 navigationEndpoint: {
                     commandMetadata: {
                         webCommandMetadata: {
@@ -103,7 +103,8 @@ export function extractVideo(video) {
     if (!video?.videoId) {
         return null;
     }
-
+    
+    console.log(video);
     return {
         title: utils.getValue(video, ["title", "runs", 0, "text"], "Untitled"),
 
@@ -116,6 +117,7 @@ export function extractVideo(video) {
         : getChannelUrl(video),
 
         thumbnail: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
+        avatar: video.avatar || getAvatarUrl(video),
     };
 }
 
@@ -148,4 +150,28 @@ function findRenderedChannelUrl(videoId) {
     );
 
     return anchor?.getAttribute("href") || "";
+}
+
+function findRenderedAvatar(videoId) {
+    const image = document.querySelector(
+        `.content-id-${videoId} yt-avatar-shape img,
+         .content-id-${videoId} #avatar img`,
+    );
+
+    return image?.src || "";
+}
+
+export function getAvatarUrl(video) {
+  const thumbnails = utils.getValue(
+    video,
+    [
+      "channelThumbnailSupportedRenderers",
+      "channelThumbnailWithLinkRenderer",
+      "thumbnail",
+      "thumbnails",
+    ],
+    [],
+  );
+
+  return thumbnails[0]?.url || "";
 }

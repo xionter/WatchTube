@@ -149,3 +149,18 @@ function findNestedAvatarUrl(value) {
 
   return "";
 }
+
+export function getAvatarUrl(video) {
+  const thumbnails = utils.getValue(
+    video,
+    [
+      "channelThumbnailSupportedRenderers",
+      "channelThumbnailWithLinkRenderer",
+      "thumbnail",
+      "thumbnails",
+    ],
+    [],
+  );
+
+  return thumbnails[0]?.url || "";
+}
