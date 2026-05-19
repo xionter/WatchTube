@@ -1,17 +1,33 @@
 import * as utils from "../../../core/utils.js";
 
 export function extractInitialData(html) {
-  const patterns = [
-    /var ytInitialData\s*=\s*(.*?);<\/script>/s,
-    /window\["ytInitialData"\]\s*=\s*(.*?);<\/script>/s,
+  const markers = [
+    "var ytInitialData = ",
+    'window["ytInitialData"] = ',
   ];
 
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
+  for (const marker of markers) {
+    const start = html.indexOf(marker);
 
-    if (match?.[1]) {
-      return JSON.parse(match[1]);
+    if (start === -1) {
+      continue;
     }
+
+    const jsonStart = start + marker.length;
+
+    const scriptEnd = html.indexOf("</script>", jsonStart);
+
+    if (scriptEnd === -1) {
+      continue;
+    }
+
+    let jsonText = html.slice(jsonStart, scriptEnd).trim();
+
+    if (jsonText.endsWith(";")) {
+      jsonText = jsonText.slice(0, -1);
+    }
+
+    return JSON.parse(jsonText);
   }
 
   throw new Error("ytInitialData not found");
@@ -148,4 +164,19 @@ function findNestedAvatarUrl(value) {
   }
 
   return "";
+}
+
+export function getAvatarUrl(video) {
+  const thumbnails = utils.getValue(
+    video,
+    [
+      "channelThumbnailSupportedRenderers",
+      "channelThumbnailWithLinkRenderer",
+      "thumbnail",
+      "thumbnails",
+    ],
+    [],
+  );
+
+  return thumbnails[0]?.url || "";
 }

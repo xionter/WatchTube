@@ -7,23 +7,32 @@ import { ensureStyleElement } from "./styles/inject.js";
 import { applyShortsVisibility } from "./features/shorts/shorts.js";
 
 import * as watchLater from "./features/feedRows/watchLater/index.js";
+import * as subscriptions from "./features/feedRows/subscriptions/index.js";
 import * as feedRowRenderer from "./features/feedRows/shared/render.js";
 
 let domObserverStarted = false;
 let refreshScheduled = false;
 let refreshInFlight = null;
-
-let lastPageUrl = location.href;
+let pendingGridRetry = null;
 
 start();
 
 function start() {
   void ensureStyleElement();
 
-  watchYoutubeDom();
+    watchYoutubeNavigation();
+    watchYoutubeDom();
   watchStorageChanges();
 
   scheduleRefresh();
+}
+
+function watchYoutubeNavigation() {
+  window.addEventListener("yt-navigate-finish", () => {
+    feedRowRenderer.resetRenderState();
+
+    scheduleRefresh();
+  });
 }
 
 function watchYoutubeDom() {
@@ -33,26 +42,24 @@ function watchYoutubeDom() {
 
   domObserverStarted = true;
 
-  const observer = new MutationObserver((mutations) => {
-    if (feedRowRenderer.isRenderInProgress()) {
+    const observer = new MutationObserver((mutations) => {
+  if (feedRowRenderer.isRenderInProgress()) {
+    return;
+  }
+
+  if (!youtube.isHomePage()) {
+    return;
+  }
+
+  for (const mutation of mutations) {
+    if (mutation.addedNodes.length) {
+      scheduleRefresh();
       return;
     }
+  }
+});
 
-    const navigated = location.href !== lastPageUrl;
-
-    if (navigated) {
-      lastPageUrl = location.href;
-
-      feedRowRenderer.resetRenderState();
-    }
-
-    if (!navigated && !shouldReactToMutations(mutations)) {
-      return;
-    }
-
-    scheduleRefresh();
-  });
-  observer.observe(document.documentElement, {
+  observer.observe(document.body, {
     childList: true,
     subtree: true,
   });
@@ -93,38 +100,75 @@ async function refreshPage() {
 
   refreshInFlight = (async () => {
     const settings = await watchLater.storage.readSettings();
+        
+      if (!document.getElementById(constants.STYLE_ID)) {
+          await ensureStyleElement();
+      }
 
-    await ensureStyleElement();
 
     applyShortsVisibility(settings.hideShorts);
 
-    if (!settings.showWatchLater || !youtube.isHomePage()) {
+    if (!youtube.isHomePage()) {
       clearWatchLater();
+      clearSubscriptions();
 
       return;
     }
 
     const grid = youtube.findHomeContents();
 
-    if (!grid) {
-      window.setTimeout(scheduleRefresh, 800);
+      if (!grid) {
+  if (!pendingGridRetry) {
+    pendingGridRetry = window.setTimeout(() => {
+      pendingGridRetry = null;
+      scheduleRefresh();
+    }, 800);
+  }
 
-      return;
-    }
+  return;
+}
+const [videos, subscriptionVideos] = await Promise.all([
+  settings.showWatchLater
+    ? watchLater.storage.getWatchLaterVideos()
+    : Promise.resolve([]),
 
-    const videos = await watchLater.storage.getWatchLaterVideos();
+  settings.showSubscriptions
+    ? subscriptions.storage.getSubscriptionVideos()
+    : Promise.resolve([]),
+]);
+if (!videos.length) {
+  clearWatchLater();
+}
 
-    if (!videos.length) {
+if (!subscriptionVideos.length) {
+  clearSubscriptions();
+}
+
+    if (settings.showWatchLater) {
+      if (videos.length) {
+        feedRowRenderer.renderFeedRow(grid, {
+          rowId: "watch-later",
+          title: "Watch Later",
+          videos,
+          loadAvatar: watchLater.api.getChannelAvatarUrl,
+        });
+      }
+    } else {
       clearWatchLater();
-
-      return;
     }
-    feedRowRenderer.renderFeedRow(grid, {
-      rowId: "watch-later",
-      title: "Watch Later",
-      videos,
-        loadAvatar: watchLater.api.getChannelAvatarUrl,
-    });
+
+    if (settings.showSubscriptions) {
+      if (subscriptionVideos.length) {
+        feedRowRenderer.renderFeedRow(grid, {
+          rowId: "subscriptions",
+          title: "Subscriptions",
+          videos: subscriptionVideos,
+          loadAvatar: watchLater.api.getChannelAvatarUrl,
+        });
+      }
+    } else {
+      clearSubscriptions();
+    }
   })();
 
   try {
@@ -134,41 +178,12 @@ async function refreshPage() {
   }
 }
 
-function shouldReactToMutations(mutations) {
-  for (const mutation of mutations) {
-    if (
-      containsRelevantMutation(mutation.addedNodes) ||
-      containsRelevantMutation(mutation.removedNodes)
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function containsRelevantMutation(nodes) {
-  for (const node of nodes) {
-    if (!(node instanceof Element)) {
-      continue;
-    }
-
-    if (node.id === constants.STYLE_ID) {
-      continue;
-    }
-
-    if (feedRowRenderer.isWatchTubeNode(node)) {
-      continue;
-    }
-
-    return true;
-  }
-
-  return false;
-}
-
 function clearWatchLater() {
   feedRowRenderer.removeFeedRow("watch-later");
+  feedRowRenderer.clearRenderState("watch-later");
+}
 
-  feedRowRenderer.resetRenderState();
+function clearSubscriptions() {
+  feedRowRenderer.removeFeedRow("subscriptions");
+  feedRowRenderer.clearRenderState("subscriptions");
 }

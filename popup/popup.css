@@ -90,6 +90,8 @@ body {
 
 .quick-actions {
   margin-top: 12px;
+  display: grid;
+  gap: 10px;
 }
 
 .primary-action {

@@ -21,7 +21,9 @@
         <div class="settings-group">
           <label class="toggle-row" for="showWatchLater">
             <div class="toggle-copy">
-              <span class="toggle-label">Watch Later in the first row</span>
+              <span class="toggle-label">
+                Add Watch Later row
+              </span>
               <span id="showWatchLaterState" class="toggle-state">
                 Enabled
               </span>
@@ -29,6 +31,22 @@
 
             <span class="switch">
               <input id="showWatchLater" type="checkbox" />
+              <span class="slider"></span>
+            </span>
+          </label>
+
+          <label class="toggle-row" for="showSubscriptions">
+            <div class="toggle-copy">
+              <span class="toggle-label">
+                Add Subscription videos row
+              </span>
+              <span id="showSubscriptionsState" class="toggle-state">
+                Enabled
+              </span>
+            </div>
+
+            <span class="switch">
+              <input id="showSubscriptions" type="checkbox" />
               <span class="slider"></span>
             </span>
           </label>
@@ -49,6 +67,9 @@
         <div class="quick-actions" aria-label="Quick actions">
           <button id="openWatchLater" class="primary-action" type="button">
             Open Watch Later
+          </button>
+          <button id="openSubscriptions" class="primary-action" type="button">
+            Open Subscriptions
           </button>
         </div>
       </section>
