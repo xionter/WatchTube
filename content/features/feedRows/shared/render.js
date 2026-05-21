@@ -13,37 +13,32 @@ export function resetRenderState() {
 }
 
 export function renderFeedRow(grid, { rowId, title, videos, loadAvatar }) {
-  const existingItems = Array.from(
-    document.querySelectorAll(`[data-watchtube-row="${rowId}"]`),
-  );
-
-  const existingButton = document.querySelector(
+  const existingSection = findSection(rowId);
+  const existingButton = existingSection?.querySelector(
     `.watchtube-shuffle[data-watchtube-row="${rowId}"]`,
   );
-
-  const existingGrid = existingItems.length
-    ? existingItems[0].parentElement
-    : null;
 
   const signature = buildRenderSignature(videos);
 
   if (
-    existingItems.length &&
+    existingSection &&
     existingButton &&
-    existingGrid === grid &&
+    existingSection.parentElement === grid &&
     lastRenderedSignatures.get(rowId) === signature
   ) {
     return;
   }
 
-  replaceFeedRow(grid, {
+  const rendered = replaceFeedRow(grid, {
     rowId,
     title,
     videos,
     loadAvatar,
   });
 
-  lastRenderedSignatures.set(rowId, signature);
+  if (rendered) {
+    lastRenderedSignatures.set(rowId, signature);
+  }
 }
 
 function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
@@ -52,12 +47,14 @@ function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
   try {
     grid.classList.add("watchtube-grid");
 
-      let section = sectionCache.get(rowId);
-    
-      if (section && !section.isConnected) {
-  sectionCache.delete(rowId);
-  section = null;
-}
+    let section = sectionCache.get(rowId);
+
+    if (section && (!section.isConnected || section.parentElement !== grid)) {
+      section.remove();
+      sectionCache.delete(rowId);
+      section = null;
+    }
+
     if (!section) {
       section = document.createElement("div");
 
@@ -72,6 +69,7 @@ function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
         grid.prepend(section);
       }
     }
+
     sectionCache.set(rowId, section);
     section.innerHTML = "";
 
@@ -89,11 +87,14 @@ function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
       .slice(0, constants.MAX_FIRST_ROW_VIDEOS);
 
     for (const video of picks) {
-      console.log(video);
       section.append(createGridItem(video, rowId, title, loadAvatar));
     }
+
+    return true;
   } catch (error) {
     console.error("WATCHTUBE RENDER FAILED", error);
+
+    return false;
   } finally {
     renderInProgress = false;
   }
@@ -105,7 +106,30 @@ export function removeFeedRow(rowId) {
     .forEach((node) => {
       node.remove();
     });
+
+  sectionCache.delete(rowId);
+}
+
+function findSection(rowId) {
+  const cached = sectionCache.get(rowId);
+
+  if (cached?.isConnected) {
+    return cached;
+  }
+
+  if (cached) {
     sectionCache.delete(rowId);
+  }
+
+  const section = document.querySelector(
+    `.watchtube-section[data-watchtube-row="${rowId}"]`,
+  );
+
+  if (section) {
+    sectionCache.set(rowId, section);
+  }
+
+  return section;
 }
 
 function findFirstFeedItem(grid) {
@@ -249,6 +273,7 @@ function buildRenderSignature(videos) {
 export function isRenderInProgress() {
   return renderInProgress;
 }
+
 export function clearRenderState(rowId) {
   lastRenderedSignatures.delete(rowId);
 }

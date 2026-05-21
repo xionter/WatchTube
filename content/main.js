@@ -1,6 +1,7 @@
 "use strict";
 
 import * as constants from "./core/constants.js";
+import * as account from "./core/account.js";
 import * as youtube from "./core/youtube.js";
 
 import { ensureStyleElement } from "./styles/inject.js";
@@ -13,15 +14,17 @@ import * as feedRowRenderer from "./features/feedRows/shared/render.js";
 let domObserverStarted = false;
 let refreshScheduled = false;
 let refreshInFlight = null;
+let refreshRequestedDuringFlight = false;
 let pendingGridRetry = null;
+let lastAccountKey = null;
 
 start();
 
 function start() {
   void ensureStyleElement();
 
-    watchYoutubeNavigation();
-    watchYoutubeDom();
+  watchYoutubeNavigation();
+  watchYoutubeDom();
   watchStorageChanges();
 
   scheduleRefresh();
@@ -42,22 +45,19 @@ function watchYoutubeDom() {
 
   domObserverStarted = true;
 
-    const observer = new MutationObserver((mutations) => {
-  if (feedRowRenderer.isRenderInProgress()) {
-    return;
-  }
-
-  if (!youtube.isHomePage()) {
-    return;
-  }
-
-  for (const mutation of mutations) {
-    if (mutation.addedNodes.length) {
-      scheduleRefresh();
+  const observer = new MutationObserver((mutations) => {
+    if (feedRowRenderer.isRenderInProgress()) {
       return;
     }
-  }
-});
+
+    if (!youtube.isHomePage()) {
+      return;
+    }
+
+    if (shouldReactToMutations(mutations)) {
+      scheduleRefresh();
+    }
+  });
 
   observer.observe(document.body, {
     childList: true,
@@ -95,18 +95,29 @@ function scheduleRefresh() {
 
 async function refreshPage() {
   if (refreshInFlight) {
+    refreshRequestedDuringFlight = true;
+
     return refreshInFlight;
   }
 
   refreshInFlight = (async () => {
     const settings = await watchLater.storage.readSettings();
-        
-      if (!document.getElementById(constants.STYLE_ID)) {
-          await ensureStyleElement();
-      }
 
+    if (!document.getElementById(constants.STYLE_ID)) {
+      await ensureStyleElement();
+    }
 
     applyShortsVisibility(settings.hideShorts);
+
+    const currentAccountKey = account.getCurrentAccountKey();
+
+    if (lastAccountKey && lastAccountKey !== currentAccountKey) {
+      feedRowRenderer.resetRenderState();
+      clearWatchLater();
+      clearSubscriptions();
+    }
+
+    lastAccountKey = currentAccountKey;
 
     if (!youtube.isHomePage()) {
       clearWatchLater();
@@ -117,32 +128,43 @@ async function refreshPage() {
 
     const grid = youtube.findHomeContents();
 
-      if (!grid) {
-  if (!pendingGridRetry) {
-    pendingGridRetry = window.setTimeout(() => {
-      pendingGridRetry = null;
-      scheduleRefresh();
-    }, 800);
-  }
+    if (!grid) {
+      if (!pendingGridRetry) {
+        pendingGridRetry = window.setTimeout(() => {
+          pendingGridRetry = null;
+          scheduleRefresh();
+        }, 800);
+      }
 
-  return;
-}
-const [videos, subscriptionVideos] = await Promise.all([
-  settings.showWatchLater
-    ? watchLater.storage.getWatchLaterVideos()
-    : Promise.resolve([]),
+      return;
+    }
 
-  settings.showSubscriptions
-    ? subscriptions.storage.getSubscriptionVideos()
-    : Promise.resolve([]),
-]);
-if (!videos.length) {
-  clearWatchLater();
-}
+    const [videos, subscriptionVideos] = await Promise.all([
+      settings.showWatchLater
+        ? watchLater.storage.getWatchLaterVideos()
+        : Promise.resolve([]),
 
-if (!subscriptionVideos.length) {
-  clearSubscriptions();
-}
+      settings.showSubscriptions
+        ? subscriptions.storage.getSubscriptionVideos()
+        : Promise.resolve([]),
+    ]);
+
+    if (account.getCurrentAccountKey() !== currentAccountKey) {
+      feedRowRenderer.resetRenderState();
+      clearWatchLater();
+      clearSubscriptions();
+      refreshRequestedDuringFlight = true;
+
+      return;
+    }
+
+    if (!videos.length) {
+      clearWatchLater();
+    }
+
+    if (!subscriptionVideos.length) {
+      clearSubscriptions();
+    }
 
     if (settings.showWatchLater) {
       if (videos.length) {
@@ -175,7 +197,45 @@ if (!subscriptionVideos.length) {
     await refreshInFlight;
   } finally {
     refreshInFlight = null;
+
+    if (refreshRequestedDuringFlight) {
+      refreshRequestedDuringFlight = false;
+      scheduleRefresh();
+    }
   }
+}
+
+function shouldReactToMutations(mutations) {
+  for (const mutation of mutations) {
+    if (
+      containsRelevantMutation(mutation.addedNodes) ||
+      containsRelevantMutation(mutation.removedNodes)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function containsRelevantMutation(nodes) {
+  for (const node of nodes) {
+    if (!(node instanceof Element)) {
+      continue;
+    }
+
+    if (node.id === constants.STYLE_ID) {
+      continue;
+    }
+
+    if (feedRowRenderer.isWatchTubeNode(node)) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
 }
 
 function clearWatchLater() {

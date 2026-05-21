@@ -1,16 +1,19 @@
 export function getCurrentAccountKey() {
-  const avatarButton =
-    document.querySelector("button#avatar-btn") ||
-    document.querySelector("img#img");
+  return getAccountAvatarSrc() || "signed-out";
+}
+
+export function isSignedIn() {
+  return Boolean(getAccountAvatarSrc());
+}
+
+function getAccountAvatarSrc() {
+  const avatarButton = document.querySelector(
+    "ytd-masthead button#avatar-btn, button#avatar-btn",
+  );
 
   const src =
     avatarButton?.querySelector?.("img")?.src ||
-    avatarButton?.src ||
     "";
-
-  if (!src) {
-    return "guest";
-  }
 
   return src;
 }
