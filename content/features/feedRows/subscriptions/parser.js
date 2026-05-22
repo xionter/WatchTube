@@ -1,10 +1,7 @@
 import * as utils from "../../../core/utils.js";
 
 export function extractInitialData(html) {
-  const markers = [
-    "var ytInitialData = ",
-    'window["ytInitialData"] = ',
-  ];
+  const markers = ["var ytInitialData = ", 'window["ytInitialData"] = '];
 
   for (const marker of markers) {
     const start = html.indexOf(marker);

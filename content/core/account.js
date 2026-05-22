@@ -11,9 +11,7 @@ function getAccountAvatarSrc() {
     "ytd-masthead button#avatar-btn, button#avatar-btn",
   );
 
-  const src =
-    avatarButton?.querySelector?.("img")?.src ||
-    "";
+  const src = avatarButton?.querySelector?.("img")?.src || "";
 
   return src;
 }

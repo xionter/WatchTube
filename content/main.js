@@ -84,8 +84,7 @@ function watchStorageChanges() {
 }
 
 function scheduleRefresh({ forceDataRefresh = false } = {}) {
-  scheduledForceDataRefresh =
-    scheduledForceDataRefresh || forceDataRefresh;
+  scheduledForceDataRefresh = scheduledForceDataRefresh || forceDataRefresh;
 
   if (refreshScheduled) {
     return;

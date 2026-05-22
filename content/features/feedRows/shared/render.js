@@ -266,9 +266,7 @@ export function isWatchTubeNode(node) {
 }
 
 function buildRenderSignature(videos) {
-  return videos
-    .map((video) => video.url)
-    .join("|");
+  return videos.map((video) => video.url).join("|");
 }
 
 export function isRenderInProgress() {
