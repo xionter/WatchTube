@@ -4,7 +4,7 @@ export function buildAccountCacheKey(prefix) {
   return `${prefix}:${account.getCurrentAccountKey()}`;
 }
 
-export async function getCached({ key, ttl, version, fetcher }) {
+export async function getCached({ key, ttl, version, fetcher, force = false }) {
   const now = Date.now();
 
   const stored = await chrome.storage.local.get(key);
@@ -12,6 +12,7 @@ export async function getCached({ key, ttl, version, fetcher }) {
   const cache = stored[key];
 
   const isValid =
+    !force &&
     cache &&
     Array.isArray(cache.items) &&
     now - cache.updatedAt < ttl &&

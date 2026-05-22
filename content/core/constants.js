@@ -12,4 +12,5 @@ export const STYLE_ID = "watchtube-style";
 
 export const CACHE_VERSION = 5;
 export const CACHE_TTL_MS = 30 * 60 * 1000;
+export const SUBSCRIPTIONS_CACHE_TTL_MS = 30 * 1000;
 export const MAX_FIRST_ROW_VIDEOS = 3;

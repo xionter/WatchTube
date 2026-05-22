@@ -13,8 +13,10 @@ import * as feedRowRenderer from "./features/feedRows/shared/render.js";
 
 let domObserverStarted = false;
 let refreshScheduled = false;
+let scheduledForceDataRefresh = false;
 let refreshInFlight = null;
 let refreshRequestedDuringFlight = false;
+let refreshRequestedForceDuringFlight = false;
 let pendingGridRetry = null;
 let lastAccountKey = null;
 
@@ -27,14 +29,14 @@ function start() {
   watchYoutubeDom();
   watchStorageChanges();
 
-  scheduleRefresh();
+  scheduleRefresh({ forceDataRefresh: true });
 }
 
 function watchYoutubeNavigation() {
   window.addEventListener("yt-navigate-finish", () => {
     feedRowRenderer.resetRenderState();
 
-    scheduleRefresh();
+    scheduleRefresh({ forceDataRefresh: true });
   });
 }
 
@@ -75,11 +77,16 @@ function watchStorageChanges() {
       return;
     }
 
-    scheduleRefresh();
+    scheduleRefresh({
+      forceDataRefresh: Boolean(changes[constants.SETTINGS_KEY]),
+    });
   });
 }
 
-function scheduleRefresh() {
+function scheduleRefresh({ forceDataRefresh = false } = {}) {
+  scheduledForceDataRefresh =
+    scheduledForceDataRefresh || forceDataRefresh;
+
   if (refreshScheduled) {
     return;
   }
@@ -88,14 +95,18 @@ function scheduleRefresh() {
 
   requestAnimationFrame(() => {
     refreshScheduled = false;
+    const forceRefresh = scheduledForceDataRefresh;
+    scheduledForceDataRefresh = false;
 
-    void refreshPage();
+    void refreshPage({ forceDataRefresh: forceRefresh });
   });
 }
 
-async function refreshPage() {
+async function refreshPage({ forceDataRefresh = false } = {}) {
   if (refreshInFlight) {
     refreshRequestedDuringFlight = true;
+    refreshRequestedForceDuringFlight =
+      refreshRequestedForceDuringFlight || forceDataRefresh;
 
     return refreshInFlight;
   }
@@ -112,6 +123,7 @@ async function refreshPage() {
     const currentAccountKey = account.getCurrentAccountKey();
 
     if (lastAccountKey && lastAccountKey !== currentAccountKey) {
+      forceDataRefresh = true;
       feedRowRenderer.resetRenderState();
       clearWatchLater();
       clearSubscriptions();
@@ -132,7 +144,7 @@ async function refreshPage() {
       if (!pendingGridRetry) {
         pendingGridRetry = window.setTimeout(() => {
           pendingGridRetry = null;
-          scheduleRefresh();
+          scheduleRefresh({ forceDataRefresh });
         }, 800);
       }
 
@@ -145,7 +157,9 @@ async function refreshPage() {
         : Promise.resolve([]),
 
       settings.showSubscriptions
-        ? subscriptions.storage.getSubscriptionVideos()
+        ? subscriptions.storage.getSubscriptionVideos({
+            force: forceDataRefresh,
+          })
         : Promise.resolve([]),
     ]);
 
@@ -154,6 +168,7 @@ async function refreshPage() {
       clearWatchLater();
       clearSubscriptions();
       refreshRequestedDuringFlight = true;
+      refreshRequestedForceDuringFlight = true;
 
       return;
     }
@@ -199,8 +214,10 @@ async function refreshPage() {
     refreshInFlight = null;
 
     if (refreshRequestedDuringFlight) {
+      const forceRefresh = refreshRequestedForceDuringFlight;
       refreshRequestedDuringFlight = false;
-      scheduleRefresh();
+      refreshRequestedForceDuringFlight = false;
+      scheduleRefresh({ forceDataRefresh: forceRefresh });
     }
   }
 }

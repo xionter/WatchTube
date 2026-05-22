@@ -107,18 +107,21 @@ export function findVideoRenderers(json) {
 
 export function extractRenderedVideos(html) {
   if (typeof DOMParser === "undefined") {
-    return [];
+    return null;
   }
 
   const document = new DOMParser().parseFromString(html, "text/html");
 
   if (!isSubscriptionsDocument(document, html)) {
-    return [];
+    return null;
   }
 
-  return [...document.querySelectorAll("ytd-rich-item-renderer")]
-    .map(extractRenderedVideo)
-    .filter(Boolean);
+  const cards = [...document.querySelectorAll("ytd-rich-item-renderer")];
+
+  return {
+    sawCards: cards.length > 0,
+    videos: cards.map(extractRenderedVideo).filter(Boolean),
+  };
 }
 
 function isSubscriptionsDocument(document, html) {
