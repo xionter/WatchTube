@@ -1,3 +1,4 @@
+*.xpi
 # Logs
 logs
 *.log

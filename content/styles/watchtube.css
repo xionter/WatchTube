@@ -15,7 +15,7 @@
   display: grid;
   gap: 12px;
 
-  color: #f1f1f1 !important;
+  color: #0f0f0f !important;
 
   text-decoration: none;
 }
@@ -73,8 +73,8 @@
 
   object-fit: cover;
 
-  background: #303030;
-  color: #fff;
+  background: #f2f2f2;
+  color: #606060;
 
   flex-shrink: 0;
 
@@ -93,7 +93,7 @@
 
   overflow: hidden;
 
-  color: #f1f1f1 !important;
+  color: #0f0f0f !important;
 
   font-family: Roboto, Arial, sans-serif;
 
@@ -109,7 +109,7 @@
 .watchtube-card-source {
   overflow: hidden;
 
-  color: #aaaaaa !important;
+  color: #606060 !important;
 
   font-family: Roboto, Arial, sans-serif;
 
@@ -121,7 +121,11 @@
 }
 
 .watchtube-card-channel {
+  display: block;
+
   margin-top: 4px;
+
+  text-decoration: none;
 }
 
 .watchtube-shuffle {
@@ -189,26 +193,28 @@
   text-decoration: none;
 }
 
-.watchtube-card-channel {
-  display: block;
-
-  overflow: hidden;
-
-  color: #aaaaaa !important;
-
-  font-family: Roboto, Arial, sans-serif;
-
-  font-size: 1.4rem;
-  line-height: 2rem;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  margin-top: 4px;
-
-  text-decoration: none;
+.watchtube-card-channel:hover {
+  color: #0f0f0f !important;
 }
 
-.watchtube-card-channel:hover {
+html[dark] .watchtube-card {
+  color: #f1f1f1 !important;
+}
+
+html[dark] .watchtube-avatar {
+  background: #303030;
+  color: #fff;
+}
+
+html[dark] .watchtube-card-title {
+  color: #f1f1f1 !important;
+}
+
+html[dark] .watchtube-card-channel,
+html[dark] .watchtube-card-source {
+  color: #aaaaaa !important;
+}
+
+html[dark] .watchtube-card-channel:hover {
   color: #ffffff !important;
 }

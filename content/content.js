@@ -1,3 +1,3 @@
 (async () => {
-  await import("./main.js");
+  await import(chrome.runtime.getURL("content/main.js"));
 })();

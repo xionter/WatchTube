@@ -11,7 +11,7 @@
   "host_permissions": ["https://www.youtube.com/*"],
   "browser_specific_settings": {
     "gecko": {
-      "id": "watchtube@tushonochki.dev",
+      "id": "watchtube-addon@tushonochki.dev",
       "data_collection_permissions": {
         "required": ["none"]
       }
