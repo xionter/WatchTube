@@ -14,13 +14,27 @@ export async function fetchSubscriptionVideos() {
 
   const html = await response.text();
 
+  const renderedVideos = parser.extractRenderedVideos(html);
+
+  if (renderedVideos.length) {
+    return renderedVideos;
+  }
+
   const json = parser.extractInitialData(html);
+
+  if (!parser.isSubscriptionsInitialData(json)) {
+    return [];
+  }
 
   const contents = parser.findVideoRenderers(json);
 
   const videos = [];
 
   for (const item of contents) {
+    if (parser.hasWatchProgressMarker(item)) {
+      continue;
+    }
+
     const video = parser.extractVideo(item);
 
     if (video) {

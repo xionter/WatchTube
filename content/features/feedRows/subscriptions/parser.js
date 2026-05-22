@@ -96,6 +96,8 @@ export function findVideoRenderers(json) {
             },
           },
         },
+
+        hasWatchProgress: hasWatchProgressMarker(lockup),
       });
     }
   }
@@ -103,8 +105,175 @@ export function findVideoRenderers(json) {
   return results;
 }
 
-function findRichGridContents(json) {
+export function extractRenderedVideos(html) {
+  if (typeof DOMParser === "undefined") {
+    return [];
+  }
+
+  const document = new DOMParser().parseFromString(html, "text/html");
+
+  if (!isSubscriptionsDocument(document, html)) {
+    return [];
+  }
+
+  return [...document.querySelectorAll("ytd-rich-item-renderer")]
+    .map(extractRenderedVideo)
+    .filter(Boolean);
+}
+
+function isSubscriptionsDocument(document, html) {
+  const title = document.querySelector("title")?.textContent || "";
+
+  return title.includes("Subscriptions") || html.includes("FEsubscriptions");
+}
+
+function extractRenderedVideo(item) {
+  const host = item.querySelector('[class*="ytLockupViewModelHost"]');
+  const videoId = getRenderedVideoId(host);
+
+  if (!videoId || hasRenderedWatchProgress(item)) {
+    return null;
+  }
+
+  const titleElement = item.querySelector(".ytLockupMetadataViewModelTitle");
+  const channelElement = item.querySelector(
+    ".ytContentMetadataViewModelMetadataRow a[href]",
+  );
+
+  const title =
+    item.querySelector("h3[title]")?.getAttribute("title") ||
+    getRenderedTitleFromAria(titleElement) ||
+    "Untitled";
+
+  return {
+    title,
+
+    url: `https://www.youtube.com/watch?v=${videoId}`,
+
+    channel: channelElement?.textContent?.trim() || "YouTube",
+
+    channelUrl: utils.normalizeYouTubeUrl(
+      channelElement?.getAttribute("href") || "",
+    ),
+
+    thumbnail: getRenderedThumbnail(item, videoId),
+
+    avatar: getRenderedAvatar(item),
+  };
+}
+
+function getRenderedVideoId(host) {
+  if (!host) {
+    return "";
+  }
+
+  const idClass = [...host.classList].find((className) =>
+    className.startsWith("content-id-"),
+  );
+
+  return idClass?.replace("content-id-", "") || "";
+}
+
+function hasRenderedWatchProgress(item) {
+  return Boolean(
+    item.querySelector(
+      [
+        "yt-thumbnail-overlay-progress-bar-view-model",
+        ".ytThumbnailOverlayProgressBarHost",
+        "[class*='WatchedProgressBar']",
+      ].join(","),
+    ) || item.querySelector('a[href*="&t="], a[href*="?t="]'),
+  );
+}
+
+function getRenderedTitleFromAria(element) {
+  const label = element?.getAttribute("aria-label") || "";
+
+  return label.replace(/\s+\d+\s+(seconds?|minutes?|hours?).*$/i, "").trim();
+}
+
+function getRenderedThumbnail(item, videoId) {
+  const src =
+    item
+      .querySelector(".ytThumbnailViewModelImage img[src]")
+      ?.getAttribute("src") || "";
+
+  return src || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+function getRenderedAvatar(item) {
   return (
+    item
+      .querySelector(".ytLockupMetadataViewModelAvatar img[src]")
+      ?.getAttribute("src") || ""
+  );
+}
+
+export function hasWatchProgressMarker(value) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  if (value.hasWatchProgress === true) {
+    return true;
+  }
+
+  if (
+    Object.hasOwn(value, "thumbnailOverlayResumePlaybackRenderer") ||
+    Object.hasOwn(value, "thumbnailOverlayProgressBarRenderer") ||
+    Object.hasOwn(value, "thumbnailOverlayProgressBarViewModel")
+  ) {
+    return true;
+  }
+
+  if (hasPositivePercentDurationWatched(value)) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => hasWatchProgressMarker(item));
+  }
+
+  return Object.values(value).some((child) => hasWatchProgressMarker(child));
+}
+
+function hasPositivePercentDurationWatched(value) {
+  if (!Object.hasOwn(value, "percentDurationWatched")) {
+    return false;
+  }
+
+  const percent = Number(value.percentDurationWatched);
+
+  return Number.isFinite(percent) && percent > 0;
+}
+
+function findRichGridContents(json) {
+  const tabs =
+    utils.getValue(
+      json,
+      ["contents", "twoColumnBrowseResultsRenderer", "tabs"],
+      [],
+    ) || [];
+
+  const selectedTab = tabs.find((tab) => tab?.tabRenderer?.selected);
+
+  return (
+    getTabRichGridContents(selectedTab) ||
+    tabs.map(getTabRichGridContents).find((contents) => contents?.length) ||
+    []
+  );
+}
+
+function getTabRichGridContents(tab) {
+  return utils.getValue(
+    tab,
+    ["tabRenderer", "content", "richGridRenderer", "contents"],
+    null,
+  );
+}
+
+export function isSubscriptionsInitialData(json) {
+  const browseId =
     utils.getValue(
       json,
       [
@@ -113,12 +282,36 @@ function findRichGridContents(json) {
         "tabs",
         0,
         "tabRenderer",
-        "content",
-        "richGridRenderer",
-        "contents",
+        "endpoint",
+        "browseEndpoint",
+        "browseId",
       ],
-      [],
-    ) || []
+      "",
+    ) ||
+    utils.getValue(json, ["header", "feedTabbedHeaderRenderer", "title"], "");
+
+  if (browseId === "FEsubscriptions") {
+    return true;
+  }
+
+  return findBrowseId(json, "FEsubscriptions");
+}
+
+function findBrowseId(value, expectedBrowseId) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  if (value.browseId === expectedBrowseId) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => findBrowseId(item, expectedBrowseId));
+  }
+
+  return Object.values(value).some((child) =>
+    findBrowseId(child, expectedBrowseId),
   );
 }
 

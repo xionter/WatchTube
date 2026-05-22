@@ -12,7 +12,7 @@ export async function getSubscriptionVideos() {
 
   return cache.getCached({
     key: cache.buildAccountCacheKey(CACHE_KEY),
-    ttl: constants.CACHE_TTL_MS,
+    ttl: 0,
     version: constants.CACHE_VERSION,
     fetcher: api.fetchSubscriptionVideos,
   });

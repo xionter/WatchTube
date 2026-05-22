@@ -10,6 +10,6 @@ export const SETTINGS_KEY = "watchTubeSettings";
 export const CACHE_KEY = "watchTubeCache";
 export const STYLE_ID = "watchtube-style";
 
-export const CACHE_VERSION = 2;
+export const CACHE_VERSION = 5;
 export const CACHE_TTL_MS = 30 * 60 * 1000;
 export const MAX_FIRST_ROW_VIDEOS = 3;

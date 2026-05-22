@@ -265,7 +265,6 @@ export function isWatchTubeNode(node) {
 
 function buildRenderSignature(videos) {
   return videos
-    .slice(0, constants.MAX_FIRST_ROW_VIDEOS)
     .map((video) => video.url)
     .join("|");
 }

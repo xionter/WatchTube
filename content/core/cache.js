@@ -14,9 +14,8 @@ export async function getCached({ key, ttl, version, fetcher }) {
   const isValid =
     cache &&
     Array.isArray(cache.items) &&
-    cache.items.length &&
     now - cache.updatedAt < ttl &&
-        cache.version === version;
+    cache.version === version;
 
   if (isValid) {
     return cache.items;
@@ -35,6 +34,6 @@ export async function getCached({ key, ttl, version, fetcher }) {
 
     return items;
   } catch (error) {
-    return cache?.items || [];
+    return cache?.version === version ? cache?.items || [] : [];
   }
 }
