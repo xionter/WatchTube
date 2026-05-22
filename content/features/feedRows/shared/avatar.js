@@ -1,27 +1,27 @@
-import * as utils from "../../../core/utils.js";
 export function findVisibleChannelAvatar(video) {
   return video.avatar || "";
 }
 
-export function createAvatarImageMarkup(src) {
-  return `
-        <img
-    class="watchtube-avatar"
-    src="${utils.escapeHtml(src)}"
-    alt=""
-        >
-        `;
+export function createAvatarImageElement(src) {
+  const avatar = document.createElement("img");
+
+  avatar.className = "watchtube-avatar";
+  avatar.alt = "";
+  avatar.src = src;
+
+  return avatar;
 }
 
-export function createAvatarPlaceholderMarkup(video) {
-  return `
-        <div
-    class="watchtube-avatar"
-    aria-hidden="true"
-        >
-        ${utils.escapeHtml(getChannelInitial(video))}
-        </div>
-        `;
+export function createAvatarPlaceholderElement(video) {
+  const placeholder = document.createElement("div");
+
+  placeholder.className = "watchtube-avatar";
+
+  placeholder.setAttribute("aria-hidden", "true");
+
+  placeholder.textContent = getChannelInitial(video);
+
+  return placeholder;
 }
 
 export function wireAvatarFallback(card, video) {
@@ -56,15 +56,11 @@ export async function loadMissingChannelAvatar(card, video, loadAvatar) {
 
   const avatarUrl = await loadAvatar(video.channelUrl);
 
-    if (!avatarUrl || !card.isConnected) {
-  return;
-}
+  if (!avatarUrl || !card.isConnected) {
+    return;
+  }
 
-  const avatar = document.createElement("img");
-
-  avatar.className = "watchtube-avatar";
-  avatar.alt = "";
-  avatar.src = avatarUrl;
+  const avatar = createAvatarImageElement(avatarUrl);
 
   avatar.addEventListener(
     "error",
@@ -77,18 +73,6 @@ export async function loadMissingChannelAvatar(card, video, loadAvatar) {
   );
 
   currentAvatar.replaceWith(avatar);
-}
-
-function createAvatarPlaceholderElement(video) {
-  const placeholder = document.createElement("div");
-
-  placeholder.className = "watchtube-avatar";
-
-  placeholder.setAttribute("aria-hidden", "true");
-
-  placeholder.textContent = getChannelInitial(video);
-
-  return placeholder;
 }
 
 function getChannelInitial(video) {

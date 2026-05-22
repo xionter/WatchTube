@@ -71,7 +71,7 @@ function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
     }
 
     sectionCache.set(rowId, section);
-    section.innerHTML = "";
+    section.replaceChildren();
 
     const button = createShuffleButton(grid, {
       rowId,
@@ -195,60 +195,62 @@ function createCard(video, title, loadAvatar) {
   card.className = "watchtube-card";
 
   const channelAvatar = avatar.findVisibleChannelAvatar(video);
+  const avatarElement = channelAvatar
+    ? avatar.createAvatarImageElement(channelAvatar)
+    : avatar.createAvatarPlaceholderElement(video);
 
-  const avatarMarkup = channelAvatar
-    ? avatar.createAvatarImageMarkup(channelAvatar)
-    : avatar.createAvatarPlaceholderMarkup(video);
+  const thumbnailLink = createVideoLink(video.url);
+  const thumbnailWrap = document.createElement("div");
+  const thumbnail = document.createElement("img");
+  const meta = document.createElement("div");
+  const copy = document.createElement("div");
+  const titleLink = createVideoLink(video.url);
+  const cardTitle = document.createElement("div");
+  const channelLink = document.createElement("a");
+  const source = document.createElement("div");
 
-  card.innerHTML = `
-    <a
-      class="watchtube-video-link"
-      href="${utils.escapeHtml(video.url)}"
-      rel="noreferrer"
-    >
-      <div class="watchtube-thumb-wrap">
-        <img
-          class="watchtube-thumb"
-          src="${utils.escapeHtml(video.thumbnail)}"
-          alt=""
-        >
-      </div>
-    </a>
+  thumbnailWrap.className = "watchtube-thumb-wrap";
 
-    <div class="watchtube-meta">
-      ${avatarMarkup}
+  thumbnail.className = "watchtube-thumb";
+  thumbnail.src = video.thumbnail;
+  thumbnail.alt = "";
 
-      <div class="watchtube-copy">
-        <a
-          class="watchtube-video-link"
-          href="${utils.escapeHtml(video.url)}"
-          rel="noreferrer"
-        >
-          <div class="watchtube-card-title">
-            ${utils.escapeHtml(video.title)}
-          </div>
-        </a>
+  meta.className = "watchtube-meta";
+  copy.className = "watchtube-copy";
 
-        <a
-          class="watchtube-card-channel"
-          href="${utils.escapeHtml(video.channelUrl || "#")}"
-          rel="noreferrer"
-        >
-          ${utils.escapeHtml(video.channel)}
-        </a>
+  cardTitle.className = "watchtube-card-title";
+  cardTitle.textContent = video.title;
 
-        <div class="watchtube-card-source">
-          ${utils.escapeHtml(title)}
-        </div>
-      </div>
-    </div>
-  `;
+  channelLink.className = "watchtube-card-channel";
+  channelLink.href = video.channelUrl || "#";
+  channelLink.rel = "noreferrer";
+  channelLink.textContent = video.channel;
+
+  source.className = "watchtube-card-source";
+  source.textContent = title;
+
+  thumbnailWrap.append(thumbnail);
+  thumbnailLink.append(thumbnailWrap);
+  titleLink.append(cardTitle);
+  copy.append(titleLink, channelLink, source);
+  meta.append(avatarElement, copy);
+  card.append(thumbnailLink, meta);
 
   avatar.wireAvatarFallback(card, video);
 
   void avatar.loadMissingChannelAvatar(card, video, loadAvatar);
 
   return card;
+}
+
+function createVideoLink(url) {
+  const link = document.createElement("a");
+
+  link.className = "watchtube-video-link";
+  link.href = url;
+  link.rel = "noreferrer";
+
+  return link;
 }
 
 export function isWatchTubeNode(node) {
