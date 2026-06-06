@@ -1,9 +1,6 @@
 # WatchTube
 
-## Links
-
-[Chrome](https://chromewebstore.google.com/detail/watchtube/pigegkcnemdgpcmfgmaajohcbekknfdg)
-[Firefox](https://addons.mozilla.org/en-US/firefox/addon/watchtube/)
+[Chrome](https://chromewebstore.google.com/detail/watchtube/pigegkcnemdgpcmfgmaajohcbekknfdg)      [Firefox](https://addons.mozilla.org/en-US/firefox/addon/watchtube/)
 
 **A better YouTube homepage.**
 
