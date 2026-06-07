@@ -7,10 +7,6 @@
   position: relative;
 }
 
-.watchtube-grid {
-  padding-top: 54px;
-}
-
 .watchtube-card {
   display: grid;
   gap: 12px;

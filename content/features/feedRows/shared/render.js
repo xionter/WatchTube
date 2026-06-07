@@ -3,92 +3,95 @@ import * as constants from "../../../core/constants.js";
 import * as avatar from "./avatar.js";
 
 const shuffleLocks = new Set();
-const lastRenderedSignatures = new Map();
+const rowStates = new Map();
 const sectionCache = new Map();
 
 let renderInProgress = false;
 
 export function resetRenderState() {
-  lastRenderedSignatures.clear();
+  rowStates.clear();
 }
 
 export function renderFeedRow(grid, { rowId, title, videos, loadAvatar }) {
-  const existingSection = findSection(rowId);
-  const existingButton = existingSection?.querySelector(
-    `.watchtube-shuffle[data-watchtube-row="${rowId}"]`,
-  );
+  const mounted = ensureMountedSection(grid, rowId);
 
-  const signature = buildRenderSignature(videos);
-
-  if (
-    existingSection &&
-    existingButton &&
-    existingSection.parentElement === grid &&
-    lastRenderedSignatures.get(rowId) === signature
-  ) {
+  if (!mounted) {
     return;
   }
 
-  const rendered = replaceFeedRow(grid, {
+  const { section, wasCreated } = mounted;
+  const state = rowStates.get(rowId);
+
+  if (
+    !wasCreated &&
+    state &&
+    state.title === title &&
+    displayedVideosStillAvailable(state.displayedUrls, videos)
+  ) {
+    rowStates.set(rowId, {
+      ...state,
+      grid,
+      title,
+      sourceSignature: buildRenderSignature(videos),
+      videos,
+      loadAvatar,
+    });
+    ensureSectionPosition(grid, section);
+
+    return;
+  }
+
+  replaceFeedRowContents(section, {
     rowId,
     title,
     videos,
     loadAvatar,
+    picks: getStablePicks(videos, state?.displayedUrls),
   });
-
-  if (rendered) {
-    lastRenderedSignatures.set(rowId, signature);
-  }
 }
 
-function replaceFeedRow(grid, { rowId, title, videos, loadAvatar }) {
+function shuffleFeedRow(grid, { rowId, title, videos, loadAvatar }) {
+  const mounted = ensureMountedSection(grid, rowId);
+
+  if (!mounted) {
+    return;
+  }
+
+  replaceFeedRowContents(mounted.section, {
+    rowId,
+    title,
+    videos,
+    loadAvatar,
+    picks: getRandomPicks(videos),
+  });
+}
+
+function replaceFeedRowContents(
+  section,
+  { rowId, title, videos, loadAvatar, picks },
+) {
   renderInProgress = true;
 
   try {
-    grid.classList.add("watchtube-grid");
-
-    let section = sectionCache.get(rowId);
-
-    if (section && (!section.isConnected || section.parentElement !== grid)) {
-      section.remove();
-      sectionCache.delete(rowId);
-      section = null;
-    }
-
-    if (!section) {
-      section = document.createElement("div");
-
-      section.className = "watchtube-section";
-      section.dataset.watchtubeRow = rowId;
-
-      const firstFeedItem = findFirstFeedItem(grid);
-
-      if (firstFeedItem) {
-        grid.insertBefore(section, firstFeedItem);
-      } else {
-        grid.prepend(section);
-      }
-    }
-
     sectionCache.set(rowId, section);
     section.replaceChildren();
 
-    const button = createShuffleButton(grid, {
-      rowId,
-      title,
-      videos,
-      loadAvatar,
-    });
+    const button = createShuffleButton(rowId);
 
     section.append(button);
-
-    const picks = utils
-      .shuffle([...videos])
-      .slice(0, constants.MAX_FIRST_ROW_VIDEOS);
 
     for (const video of picks) {
       section.append(createGridItem(video, rowId, title, loadAvatar));
     }
+
+    rowStates.set(rowId, {
+      grid: section.parentElement,
+      title,
+      sourceSignature: buildRenderSignature(videos),
+      videos,
+      loadAvatar,
+      displayedUrls: picks.map((video) => video.url),
+    });
 
     return true;
   } catch (error) {
@@ -108,6 +111,8 @@ export function removeFeedRow(rowId) {
     });
 
   sectionCache.delete(rowId);
+  rowStates.delete(rowId);
+  cleanupWatchTubeGridClasses();
 }
 
 function findSection(rowId) {
@@ -136,6 +141,77 @@ function findFirstFeedItem(grid) {
   return [...grid.children].find((child) => !isWatchTubeNode(child)) || null;
 }
 
+function ensureMountedSection(grid, rowId) {
+  if (!grid) {
+    return null;
+  }
+
+  renderInProgress = true;
+
+  try {
+    grid.classList.add("watchtube-grid");
+
+    let section = sectionCache.get(rowId);
+    let wasCreated = false;
+
+    if (section && section.parentElement !== grid) {
+      section.remove();
+    }
+
+    if (!section || !section.isConnected || section.parentElement !== grid) {
+      section = findSection(rowId);
+    }
+
+    if (section && section.parentElement !== grid) {
+      section.remove();
+    }
+
+    if (!section || !section.isConnected || section.parentElement !== grid) {
+      section = document.createElement("div");
+
+      section.className = "watchtube-section";
+      section.dataset.watchtubeRow = rowId;
+      wasCreated = true;
+    }
+
+    sectionCache.set(rowId, section);
+    ensureSectionPosition(grid, section);
+
+    return { section, wasCreated };
+  } catch (error) {
+    console.error("WATCHTUBE RENDER MOUNT FAILED", error);
+
+    return null;
+  } finally {
+    renderInProgress = false;
+  }
+}
+
+function ensureSectionPosition(grid, section) {
+  const firstFeedItem = findFirstFeedItem(grid);
+  const sectionIsBeforeFeed =
+    firstFeedItem &&
+    section.parentElement === grid &&
+    Boolean(
+      section.compareDocumentPosition(firstFeedItem) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+
+  if (sectionIsBeforeFeed) {
+    return;
+  }
+
+  if (firstFeedItem) {
+    grid.insertBefore(section, firstFeedItem);
+
+    return;
+  }
+
+  if (!firstFeedItem && section.parentElement !== grid) {
+    grid.prepend(section);
+  }
+}
+
 function createGridItem(video, rowId, title, loadAvatar) {
   const item = document.createElement("div");
 
@@ -147,7 +223,7 @@ function createGridItem(video, rowId, title, loadAvatar) {
   return item;
 }
 
-function createShuffleButton(grid, { rowId, title, videos, loadAvatar }) {
+function createShuffleButton(rowId) {
   const button = document.createElement("button");
 
   button.className = "watchtube-shuffle";
@@ -170,11 +246,17 @@ function createShuffleButton(grid, { rowId, title, videos, loadAvatar }) {
     button.style.opacity = "0.7";
 
     try {
-      replaceFeedRow(grid, {
+      const state = rowStates.get(rowId);
+
+      if (!state) {
+        return;
+      }
+
+      shuffleFeedRow(state.grid, {
         rowId,
-        title,
-        videos,
-        loadAvatar,
+        title: state.title,
+        videos: state.videos,
+        loadAvatar: state.loadAvatar,
       });
     } finally {
       setTimeout(() => {
@@ -269,10 +351,51 @@ function buildRenderSignature(videos) {
   return videos.map((video) => video.url).join("|");
 }
 
+function displayedVideosStillAvailable(displayedUrls, videos) {
+  const availableUrls = new Set(videos.map((video) => video.url));
+
+  return displayedUrls.every((url) => availableUrls.has(url));
+}
+
+function getStablePicks(videos, displayedUrls = []) {
+  if (!displayedUrls.length) {
+    return getRandomPicks(videos);
+  }
+
+  const videosByUrl = new Map(videos.map((video) => [video.url, video]));
+  const stablePicks = displayedUrls
+    .map((url) => videosByUrl.get(url))
+    .filter(Boolean);
+
+  if (stablePicks.length >= constants.MAX_FIRST_ROW_VIDEOS) {
+    return stablePicks.slice(0, constants.MAX_FIRST_ROW_VIDEOS);
+  }
+
+  const usedUrls = new Set(stablePicks.map((video) => video.url));
+  const fillVideos = videos.filter((video) => !usedUrls.has(video.url));
+
+  return [...stablePicks, ...getRandomPicks(fillVideos)].slice(
+    0,
+    constants.MAX_FIRST_ROW_VIDEOS,
+  );
+}
+
+function getRandomPicks(videos) {
+  return utils.shuffle([...videos]).slice(0, constants.MAX_FIRST_ROW_VIDEOS);
+}
+
 export function isRenderInProgress() {
   return renderInProgress;
 }
 
 export function clearRenderState(rowId) {
-  lastRenderedSignatures.delete(rowId);
+  rowStates.delete(rowId);
+}
+
+function cleanupWatchTubeGridClasses() {
+  document.querySelectorAll(".watchtube-grid").forEach((grid) => {
+    if (!grid.querySelector(".watchtube-section")) {
+      grid.classList.remove("watchtube-grid");
+    }
+  });
 }

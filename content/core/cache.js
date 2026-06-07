@@ -35,6 +35,8 @@ export async function getCached({ key, ttl, version, fetcher, force = false }) {
 
     return items;
   } catch (error) {
+    console.warn("WatchTube: failed to refresh cached feed data", error);
+
     return cache?.version === version ? cache?.items || [] : [];
   }
 }

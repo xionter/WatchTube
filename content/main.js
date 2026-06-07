@@ -18,6 +18,7 @@ let refreshInFlight = null;
 let refreshRequestedDuringFlight = false;
 let refreshRequestedForceDuringFlight = false;
 let pendingGridRetry = null;
+let pendingGridRetryForceDataRefresh = false;
 let lastAccountKey = null;
 
 start();
@@ -34,8 +35,6 @@ function start() {
 
 function watchYoutubeNavigation() {
   window.addEventListener("yt-navigate-finish", () => {
-    feedRowRenderer.resetRenderState();
-
     scheduleRefresh({ forceDataRefresh: true });
   });
 }
@@ -119,17 +118,6 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
 
     applyShortsVisibility(settings.hideShorts);
 
-    const currentAccountKey = account.getCurrentAccountKey();
-
-    if (lastAccountKey && lastAccountKey !== currentAccountKey) {
-      forceDataRefresh = true;
-      feedRowRenderer.resetRenderState();
-      clearWatchLater();
-      clearSubscriptions();
-    }
-
-    lastAccountKey = currentAccountKey;
-
     if (!youtube.isHomePage()) {
       clearWatchLater();
       clearSubscriptions();
@@ -140,15 +128,29 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
     const grid = youtube.findHomeContents();
 
     if (!grid) {
-      if (!pendingGridRetry) {
-        pendingGridRetry = window.setTimeout(() => {
-          pendingGridRetry = null;
-          scheduleRefresh({ forceDataRefresh });
-        }, 800);
-      }
+      scheduleDeferredRefresh({ forceDataRefresh });
 
       return;
     }
+
+    if (!account.isReadyForRefresh(lastAccountKey)) {
+      scheduleDeferredRefresh({ forceDataRefresh });
+
+      return;
+    }
+
+    pendingGridRetry = clearPendingRefresh(pendingGridRetry);
+
+    const currentAccountKey = account.getCurrentAccountKey();
+
+    if (lastAccountKey && lastAccountKey !== currentAccountKey) {
+      forceDataRefresh = true;
+      feedRowRenderer.resetRenderState();
+      clearWatchLater();
+      clearSubscriptions();
+    }
+
+    lastAccountKey = currentAccountKey;
 
     const [videos, subscriptionVideos] = await Promise.all([
       settings.showWatchLater
@@ -252,6 +254,32 @@ function containsRelevantMutation(nodes) {
   }
 
   return false;
+}
+
+function scheduleDeferredRefresh({ forceDataRefresh = false } = {}) {
+  pendingGridRetryForceDataRefresh =
+    pendingGridRetryForceDataRefresh || forceDataRefresh;
+
+  if (pendingGridRetry) {
+    return;
+  }
+
+  pendingGridRetry = window.setTimeout(() => {
+    const forceRefresh = pendingGridRetryForceDataRefresh;
+    pendingGridRetry = null;
+    pendingGridRetryForceDataRefresh = false;
+    scheduleRefresh({ forceDataRefresh: forceRefresh });
+  }, 500);
+}
+
+function clearPendingRefresh(timeoutId) {
+  if (timeoutId) {
+    window.clearTimeout(timeoutId);
+  }
+
+  pendingGridRetryForceDataRefresh = false;
+
+  return null;
 }
 
 function clearWatchLater() {
