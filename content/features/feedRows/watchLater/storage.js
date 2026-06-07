@@ -12,7 +12,7 @@ export async function readSettings() {
   };
 }
 
-export async function getWatchLaterVideos() {
+export async function getWatchLaterVideos({ force = false } = {}) {
   if (!account.isSignedIn()) {
     return [];
   }
@@ -22,5 +22,6 @@ export async function getWatchLaterVideos() {
     ttl: constants.CACHE_TTL_MS,
     version: constants.CACHE_VERSION,
     fetcher: api.fetchWatchLater,
+    force,
   });
 }

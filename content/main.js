@@ -72,7 +72,7 @@ function watchStorageChanges() {
       return;
     }
 
-    if (!changes[constants.SETTINGS_KEY] && !changes[constants.CACHE_KEY]) {
+    if (!hasRelevantStorageChange(changes)) {
       return;
     }
 
@@ -154,7 +154,9 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
 
     const [videos, subscriptionVideos] = await Promise.all([
       settings.showWatchLater
-        ? watchLater.storage.getWatchLaterVideos()
+        ? watchLater.storage.getWatchLaterVideos({
+            force: forceDataRefresh,
+          })
         : Promise.resolve([]),
 
       settings.showSubscriptions
@@ -234,6 +236,16 @@ function shouldReactToMutations(mutations) {
   }
 
   return false;
+}
+
+function hasRelevantStorageChange(changes) {
+  return Object.keys(changes).some(
+    (key) =>
+      key === constants.SETTINGS_KEY ||
+      key === constants.CACHE_KEY ||
+      key.startsWith(`${constants.CACHE_KEY}:`) ||
+      key.startsWith("watchTubeSubscriptionsCache:"),
+  );
 }
 
 function containsRelevantMutation(nodes) {
