@@ -6,13 +6,13 @@
 
 WatchTube improves YouTube's homepage by mixing algorithmic recommendations with videos you've already shown an interest in watching.
 
-Instead of relying entirely on YouTube's recommendation system, WatchTube surfaces content from your Watch Later playlist and unwatched subscriptions while improving recommendation variety and reducing clutter.
+Instead of relying entirely on YouTube's recommendation system, WatchTube surfaces content from playlists you choose and unwatched subscriptions while improving recommendation variety and reducing clutter.
 
 ## Features
 
-### Watch Later Integration
+### Custom Playlist Rows
 
-Adds videos from your Watch Later playlist directly into the homepage feed, helping you revisit videos you've saved but never watched.
+Adds unwatched videos from any YouTube playlist directly into the homepage feed. Watch Later is included by default, but you can add, disable, or delete playlist rows from the popup.
 
 ### Unwatched Subscription Discovery
 
@@ -28,7 +28,7 @@ Optionally removes Shorts from the homepage for a cleaner browsing experience.
 
 ### Less Recommendation Fatigue
 
-Balances YouTube's recommendations with content you've already chosen to save or subscribe to.
+Balances YouTube's recommendations with content you've already chosen to save in playlists or follow through subscriptions.
 
 ## Privacy
 

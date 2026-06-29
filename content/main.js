@@ -2,12 +2,13 @@
 
 import * as constants from "./core/constants.js";
 import * as account from "./core/account.js";
+import * as settingsStore from "./core/settings.js";
 import * as youtube from "./core/youtube.js";
 
 import { ensureStyleElement } from "./styles/inject.js";
 import { applyShortsVisibility } from "./features/shorts/shorts.js";
 
-import * as watchLater from "./features/feedRows/watchLater/index.js";
+import * as playlists from "./features/feedRows/playlists/index.js";
 import * as subscriptions from "./features/feedRows/subscriptions/index.js";
 import * as feedRowRenderer from "./features/feedRows/shared/render.js";
 
@@ -20,6 +21,7 @@ let refreshRequestedForceDuringFlight = false;
 let pendingGridRetry = null;
 let pendingGridRetryForceDataRefresh = false;
 let lastAccountKey = null;
+let renderedPlaylistRowIds = new Set();
 
 start();
 
@@ -110,7 +112,7 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
   }
 
   refreshInFlight = (async () => {
-    const settings = await watchLater.storage.readSettings();
+    let settings = await settingsStore.readSettings();
 
     if (!document.getElementById(constants.STYLE_ID)) {
       await ensureStyleElement();
@@ -119,7 +121,7 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
     applyShortsVisibility(settings.hideShorts);
 
     if (!youtube.isHomePage()) {
-      clearWatchLater();
+      clearPlaylistRows();
       clearSubscriptions();
 
       return;
@@ -146,19 +148,27 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
     if (lastAccountKey && lastAccountKey !== currentAccountKey) {
       forceDataRefresh = true;
       feedRowRenderer.resetRenderState();
-      clearWatchLater();
+      clearPlaylistRows();
       clearSubscriptions();
     }
 
     lastAccountKey = currentAccountKey;
+    const enabledPlaylists = settings.playlists.filter((playlist) => playlist.enabled);
 
-    const [videos, subscriptionVideos] = await Promise.all([
-      settings.showWatchLater
-        ? watchLater.storage.getWatchLaterVideos({
+    const [playlistRows, subscriptionVideos] = await Promise.all([
+      Promise.all(
+        enabledPlaylists.map(async (playlist) => {
+          const data = await playlists.storage.getPlaylistData({
+            playlist,
             force: forceDataRefresh,
-          })
-        : Promise.resolve([]),
+          });
 
+          return {
+            playlist,
+            data,
+          };
+        }),
+      ),
       settings.showSubscriptions
         ? subscriptions.storage.getSubscriptionVideos({
             force: forceDataRefresh,
@@ -168,7 +178,7 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
 
     if (account.getCurrentAccountKey() !== currentAccountKey) {
       feedRowRenderer.resetRenderState();
-      clearWatchLater();
+      clearPlaylistRows();
       clearSubscriptions();
       refreshRequestedDuringFlight = true;
       refreshRequestedForceDuringFlight = true;
@@ -176,26 +186,8 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
       return;
     }
 
-    if (!videos.length) {
-      clearWatchLater();
-    }
-
-    if (!subscriptionVideos.length) {
-      clearSubscriptions();
-    }
-
-    if (settings.showWatchLater) {
-      if (videos.length) {
-        feedRowRenderer.renderFeedRow(grid, {
-          rowId: "watch-later",
-          title: "Watch Later",
-          videos,
-          loadAvatar: watchLater.api.getChannelAvatarUrl,
-        });
-      }
-    } else {
-      clearWatchLater();
-    }
+    settings = await syncStoredPlaylistTitles(settings, playlistRows);
+    syncPlaylistRows(grid, playlistRows);
 
     if (settings.showSubscriptions) {
       if (subscriptionVideos.length) {
@@ -203,8 +195,10 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
           rowId: "subscriptions",
           title: "Subscriptions",
           videos: subscriptionVideos,
-          loadAvatar: watchLater.api.getChannelAvatarUrl,
+          loadAvatar: playlists.api.getChannelAvatarUrl,
         });
+      } else {
+        clearSubscriptions();
       }
     } else {
       clearSubscriptions();
@@ -242,9 +236,8 @@ function hasRelevantStorageChange(changes) {
   return Object.keys(changes).some(
     (key) =>
       key === constants.SETTINGS_KEY ||
-      key === constants.CACHE_KEY ||
-      key.startsWith(`${constants.CACHE_KEY}:`) ||
-      key.startsWith("watchTubeSubscriptionsCache:"),
+      key.startsWith(`${constants.PLAYLISTS_CACHE_KEY}:`) ||
+      key.startsWith(`${constants.SUBSCRIPTIONS_CACHE_KEY}:`),
   );
 }
 
@@ -294,12 +287,105 @@ function clearPendingRefresh(timeoutId) {
   return null;
 }
 
-function clearWatchLater() {
-  feedRowRenderer.removeFeedRow("watch-later");
-  feedRowRenderer.clearRenderState("watch-later");
-}
-
 function clearSubscriptions() {
   feedRowRenderer.removeFeedRow("subscriptions");
   feedRowRenderer.clearRenderState("subscriptions");
+}
+
+async function syncStoredPlaylistTitles(settings, playlistRows) {
+  const nextTitlesByPlaylistId = new Map();
+
+  for (const { playlist, data } of playlistRows) {
+    const title = String(data?.title || "").trim();
+
+    if (title) {
+      nextTitlesByPlaylistId.set(playlist.playlistId, title);
+    }
+  }
+
+  let changed = false;
+
+  const playlists = settings.playlists.map((playlist) => {
+    const nextTitle = nextTitlesByPlaylistId.get(playlist.playlistId);
+
+    if (!nextTitle || nextTitle === playlist.title) {
+      return playlist;
+    }
+
+    changed = true;
+
+    return {
+      ...playlist,
+      title: nextTitle,
+    };
+  });
+
+  if (!changed) {
+    return settings;
+  }
+
+  return settingsStore.writeSettings({
+    ...settings,
+    playlists,
+  });
+}
+
+function syncPlaylistRows(grid, playlistRows) {
+  const nextRenderedRowIds = new Set();
+
+  for (const { playlist, data } of playlistRows) {
+    const rowId = getPlaylistRowId(playlist);
+    const videos = Array.isArray(data?.videos) ? data.videos : [];
+
+    if (!videos.length) {
+      clearPlaylistRow(rowId);
+      continue;
+    }
+
+    feedRowRenderer.renderFeedRow(grid, {
+      rowId,
+      title: data?.title || playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
+      videos,
+      loadAvatar: playlists.api.getChannelAvatarUrl,
+    });
+
+    nextRenderedRowIds.add(rowId);
+  }
+
+  for (const rowId of renderedPlaylistRowIds) {
+    if (!nextRenderedRowIds.has(rowId)) {
+      clearPlaylistRow(rowId);
+    }
+  }
+
+  renderedPlaylistRowIds = nextRenderedRowIds;
+}
+
+function clearPlaylistRows() {
+  const rowIds = new Set(renderedPlaylistRowIds);
+
+  document
+    .querySelectorAll('.watchtube-section[data-watchtube-row^="playlist-"]')
+    .forEach((section) => {
+      const rowId = section.dataset.watchtubeRow;
+
+      if (rowId) {
+        rowIds.add(rowId);
+      }
+    });
+
+  for (const rowId of rowIds) {
+    clearPlaylistRow(rowId);
+  }
+
+  renderedPlaylistRowIds = new Set();
+}
+
+function clearPlaylistRow(rowId) {
+  feedRowRenderer.removeFeedRow(rowId);
+  feedRowRenderer.clearRenderState(rowId);
+}
+
+function getPlaylistRowId(playlist) {
+  return `playlist-${playlist.id || playlist.playlistId}`;
 }

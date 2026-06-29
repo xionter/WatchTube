@@ -1,3 +1,4 @@
+import * as constants from "../../../core/constants.js";
 import * as utils from "../../../core/utils.js";
 
 export function extractInitialData(html) {
@@ -11,7 +12,6 @@ export function extractInitialData(html) {
     }
 
     const jsonStart = start + marker.length;
-
     const scriptEnd = html.indexOf("</script>", jsonStart);
 
     if (scriptEnd === -1) {
@@ -28,6 +28,90 @@ export function extractInitialData(html) {
   }
 
   throw new Error("ytInitialData not found");
+}
+
+export function extractPlaylistTitle(json, html = "") {
+  const candidateTitle =
+    [
+      utils.getValue(json, ["metadata", "playlistMetadataRenderer", "title"], ""),
+      utils.getValue(
+        json,
+        ["header", "playlistHeaderRenderer", "title", "simpleText"],
+        "",
+      ),
+      utils.getValue(json, ["header", "playlistHeaderRenderer", "title", "runs", 0, "text"], ""),
+      utils.getValue(
+        json,
+        [
+          "sidebar",
+          "playlistSidebarRenderer",
+          "items",
+          0,
+          "playlistSidebarPrimaryInfoRenderer",
+          "title",
+          "runs",
+          0,
+          "text",
+        ],
+        "",
+      ),
+      utils.getValue(json, ["microformat", "microformatDataRenderer", "title"], ""),
+    ].find((title) => String(title || "").trim()) || "";
+
+  if (candidateTitle) {
+    return candidateTitle.trim();
+  }
+
+  return extractTitleFromHtml(html);
+}
+
+export function findPlaylistVideos(json) {
+  const tabs =
+    utils.getValue(
+      json,
+      ["contents", "twoColumnBrowseResultsRenderer", "tabs"],
+      [],
+    ) || [];
+
+  const selectedTab = tabs.find((tab) => tab?.tabRenderer?.selected) || tabs[0];
+
+  return (
+    utils.getValue(
+      selectedTab,
+      [
+        "tabRenderer",
+        "content",
+        "sectionListRenderer",
+        "contents",
+        0,
+        "itemSectionRenderer",
+        "contents",
+        0,
+        "playlistVideoListRenderer",
+        "contents",
+      ],
+      [],
+    ) || []
+  );
+}
+
+export function extractVideo(video) {
+  if (!video?.videoId) {
+    return null;
+  }
+
+  return {
+    title: utils.getValue(video, ["title", "runs", 0, "text"], "Untitled"),
+    url: `https://www.youtube.com/watch?v=${video.videoId}`,
+    channel: utils.getValue(
+      video,
+      ["shortBylineText", "runs", 0, "text"],
+      "YouTube",
+    ),
+    channelUrl: getChannelUrl(video),
+    thumbnail: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
+    avatar: getAvatarUrl(video),
+  };
 }
 
 export function getChannelUrl(video) {
@@ -107,6 +191,46 @@ export function findChannelAvatarUrl(json) {
   return findNestedAvatarUrl(json);
 }
 
+export function getAvatarUrl(video) {
+  const thumbnails = utils.getValue(
+    video,
+    [
+      "channelThumbnailSupportedRenderers",
+      "channelThumbnailWithLinkRenderer",
+      "thumbnail",
+      "thumbnails",
+    ],
+    [],
+  );
+
+  return thumbnails[0]?.url || "";
+}
+
+function extractTitleFromHtml(html) {
+  if (!html) {
+    return constants.DEFAULT_PLAYLIST_TITLE;
+  }
+
+  if (typeof DOMParser !== "undefined") {
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const title = cleanPageTitle(document.querySelector("title")?.textContent || "");
+
+    if (title) {
+      return title;
+    }
+  }
+
+  const titleMatch = html.match(/<title>(.*?)<\/title>/i);
+
+  return cleanPageTitle(titleMatch?.[1] || "") || constants.DEFAULT_PLAYLIST_TITLE;
+}
+
+function cleanPageTitle(title) {
+  return String(title || "")
+    .replace(/\s*-\s*YouTube\s*$/i, "")
+    .trim();
+}
+
 function selectLargestImageUrl(candidates) {
   if (!Array.isArray(candidates)) {
     return "";
@@ -161,19 +285,4 @@ function findNestedAvatarUrl(value) {
   }
 
   return "";
-}
-
-export function getAvatarUrl(video) {
-  const thumbnails = utils.getValue(
-    video,
-    [
-      "channelThumbnailSupportedRenderers",
-      "channelThumbnailWithLinkRenderer",
-      "thumbnail",
-      "thumbnails",
-    ],
-    [],
-  );
-
-  return thumbnails[0]?.url || "";
 }

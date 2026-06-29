@@ -24,7 +24,7 @@
 html,
 body {
   margin: 0;
-  width: 360px;
+  width: 388px;
   background:
     radial-gradient(
       circle at top left,
@@ -48,7 +48,7 @@ body {
 .popup-card {
   padding: 18px;
   border: 1px solid var(--popup-border);
-  border-radius: 20px;
+  border-radius: 18px;
   background: var(--popup-card);
   box-shadow:
     0 20px 42px rgba(0, 0, 0, 0.35),
@@ -56,7 +56,7 @@ body {
 }
 
 .popup-head {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .popup-badge {
@@ -86,6 +86,7 @@ body {
 .settings-group {
   display: grid;
   gap: 10px;
+  margin-top: 12px;
 }
 
 .quick-actions {
@@ -94,7 +95,8 @@ body {
   gap: 10px;
 }
 
-.primary-action {
+.primary-action,
+.secondary-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -123,12 +125,24 @@ body {
     transform 160ms ease;
 }
 
-.primary-action:hover {
+.primary-action {
+  border: 0;
+  background: var(--popup-track-active);
+}
+
+.secondary-action {
+  border: 1px solid var(--popup-border);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.primary-action:hover,
+.secondary-action:hover {
   filter: brightness(1.08);
   transform: translateY(-1px);
 }
 
-.primary-action:active {
+.primary-action:active,
+.secondary-action:active {
   transform: translateY(0);
 }
 
@@ -160,11 +174,151 @@ body {
   font-weight: 600;
 }
 
+.panel-copy,
 .toggle-state,
-.feature-list {
+.feature-list,
+.empty-state,
+.playlist-status,
+.playlist-row-link,
+.playlist-toggle-state {
   color: var(--popup-text-secondary);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.panel {
+  padding: 14px;
+}
+
+.panel-head {
+  margin-bottom: 12px;
+}
+
+.panel-copy {
+  margin: 6px 0 0;
+}
+
+.playlist-form {
+  display: grid;
+  gap: 10px;
+}
+
+.playlist-input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--popup-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--popup-text-primary);
+  font:
+    500 13px/1.2 "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
+}
+
+.playlist-input::placeholder {
+  color: #8a93a3;
+}
+
+.playlist-input:focus {
+  outline: 1px solid rgba(255, 120, 86, 0.65);
+  border-color: rgba(255, 120, 86, 0.65);
+}
+
+.playlist-input:disabled,
+.primary-action:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.playlist-status {
+  margin: 10px 0 0;
+}
+
+.playlist-status[data-tone="error"] {
+  color: #ff9c92;
+}
+
+.playlist-status[data-tone="success"] {
+  color: #9fd8a5;
+}
+
+.playlist-status[data-tone="info"] {
+  color: #b7bfd0;
+}
+
+.playlist-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.playlist-row {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--popup-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.playlist-copy {
+  min-width: 0;
+}
+
+.playlist-row-title {
+  font-size: 14px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.playlist-row-link {
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-actions,
+.playlist-buttons,
+.playlist-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.playlist-actions {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.playlist-toggle {
+  color: var(--popup-text-primary);
+}
+
+.mini-action {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--popup-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--popup-text-primary);
+  cursor: pointer;
+  font:
+    700 12px/1 "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
+}
+
+.mini-action-danger {
+  color: #ffb3aa;
+}
+
+.empty-state {
+  margin: 12px 0 0;
 }
 
 .switch {
@@ -211,4 +365,20 @@ body {
 
 .switch input:checked + .slider::before {
   transform: translateX(20px);
+}
+
+.switch-compact {
+  width: 44px;
+  height: 28px;
+}
+
+.switch-compact .slider::before {
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+}
+
+.switch-compact input:checked + .slider::before {
+  transform: translateX(16px);
 }

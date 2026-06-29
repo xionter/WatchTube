@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "WatchTube",
   "version": "1.0.0",
-  "description": "Enhances YouTube’s homepage by modifying its layout and recommendations. Adds Watch Later videos to the homepage (with reshuffling), surfaces random unwatched videos from your subscriptions, and allows hiding YouTube Shorts.",
+  "description": "Enhances YouTube’s homepage by adding customizable playlist rows, surfacing random unwatched subscription videos, and optionally hiding Shorts.",
   "icons": {
     "48": "icons/logo48.png",
     "96": "icons/logo96.png"

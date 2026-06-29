@@ -11,31 +11,52 @@
       <section class="popup-card">
         <div class="popup-head">
           <p class="popup-badge">WatchTube</p>
-          <h1 class="popup-title">YouTube Settings</h1>
+          <h1 class="popup-title">Homepage Settings</h1>
           <p class="popup-subtitle">
-            Saved videos are integrated into the homepage and appear like
-            regular YouTube cards.
+            Mix YouTube recommendations with playlist rows you control.
           </p>
         </div>
 
-        <div class="settings-group">
-          <label class="toggle-row" for="showWatchLater">
-            <div class="toggle-copy">
-              <span class="toggle-label"> Add Watch Later row </span>
-              <span id="showWatchLaterState" class="toggle-state">
-                Enabled
-              </span>
+        <section class="panel playlist-panel" aria-labelledby="playlistPanelTitle">
+          <div class="panel-head">
+            <div>
+              <h2 id="playlistPanelTitle" class="panel-title">Playlists</h2>
+              <p class="panel-copy">Each enabled playlist becomes a homepage row with unwatched videos.</p>
             </div>
+          </div>
 
-            <span class="switch">
-              <input id="showWatchLater" type="checkbox" />
-              <span class="slider"></span>
-            </span>
-          </label>
+          <form id="playlistForm" class="playlist-form">
+            <input
+              id="playlistUrl"
+              class="playlist-input"
+              type="text"
+              inputmode="url"
+              placeholder="Paste a YouTube playlist link"
+              autocomplete="off"
+            />
 
+            <button id="addPlaylist" class="primary-action" type="submit">
+              Add playlist
+            </button>
+          </form>
+
+          <p
+            id="playlistStatus"
+            class="playlist-status"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
+          <div id="playlistList" class="playlist-list"></div>
+          <p id="playlistEmpty" class="empty-state" hidden>
+            No playlist rows yet.
+          </p>
+        </section>
+
+        <div class="settings-group">
           <label class="toggle-row" for="showSubscriptions">
             <div class="toggle-copy">
-              <span class="toggle-label"> Add Subscription videos row </span>
+              <span class="toggle-label">Add subscription videos row</span>
               <span id="showSubscriptionsState" class="toggle-state">
                 Enabled
               </span>
@@ -61,16 +82,13 @@
         </div>
 
         <div class="quick-actions" aria-label="Quick actions">
-          <button id="openWatchLater" class="primary-action" type="button">
-            Open Watch Later
-          </button>
-          <button id="openSubscriptions" class="primary-action" type="button">
+          <button id="openSubscriptions" class="secondary-action" type="button">
             Open Subscriptions
           </button>
         </div>
       </section>
     </main>
 
-    <script src="popup.js"></script>
+    <script type="module" src="popup.js"></script>
   </body>
 </html>
