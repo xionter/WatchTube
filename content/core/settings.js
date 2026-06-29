@@ -20,6 +20,10 @@ export function normalizeSettings(rawSettings = {}) {
   const settings = isObject(rawSettings) ? rawSettings : {};
 
   return {
+    darkTheme: readBooleanSetting(
+      settings.darkTheme,
+      constants.DEFAULT_SETTINGS.darkTheme,
+    ),
     showSubscriptions: readBooleanSetting(
       settings.showSubscriptions,
       constants.DEFAULT_SETTINGS.showSubscriptions,

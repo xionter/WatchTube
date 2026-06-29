@@ -18,6 +18,7 @@ export const DEFAULT_PLAYLIST = Object.freeze({
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
+  darkTheme: true,
   showSubscriptions: true,
   hideShorts: false,
   playlists: [DEFAULT_PLAYLIST],
