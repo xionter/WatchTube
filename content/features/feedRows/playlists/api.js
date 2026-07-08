@@ -20,7 +20,7 @@ export async function fetchPlaylist(playlist) {
   const videos = [];
 
   for (const item of contents) {
-    const video = item?.playlistVideoRenderer;
+    const video = item?.playlistVideoRenderer || item;
 
     if (!video?.videoId || hasWatchProgressMarker(video)) {
       continue;

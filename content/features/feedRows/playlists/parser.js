@@ -75,7 +75,7 @@ export function findPlaylistVideos(json) {
 
   const selectedTab = tabs.find((tab) => tab?.tabRenderer?.selected) || tabs[0];
 
-  return (
+  const contents =
     utils.getValue(
       selectedTab,
       [
@@ -91,8 +91,23 @@ export function findPlaylistVideos(json) {
         "contents",
       ],
       [],
-    ) || []
-  );
+    ) || [];
+
+  if (contents.length) {
+    return contents;
+  }
+
+  const playlistVideos = [];
+  collectPlaylistVideos(json, playlistVideos);
+
+  if (playlistVideos.length) {
+    return playlistVideos;
+  }
+
+  const lockupVideos = [];
+  collectLockupVideos(json, lockupVideos);
+
+  return lockupVideos;
 }
 
 export function extractVideo(video) {
@@ -101,25 +116,33 @@ export function extractVideo(video) {
   }
 
   return {
-    title: utils.getValue(video, ["title", "runs", 0, "text"], "Untitled"),
+    title:
+      utils.getValue(video, ["title", "runs", 0, "text"], "") ||
+      utils.getValue(video, ["title", "simpleText"], "") ||
+      "Untitled",
     url: `https://www.youtube.com/watch?v=${video.videoId}`,
-    channel: utils.getValue(
-      video,
-      ["shortBylineText", "runs", 0, "text"],
+    channel:
+      utils.getValue(video, ["shortBylineText", "runs", 0, "text"], "") ||
+      utils.getValue(video, ["ownerText", "runs", 0, "text"], "") ||
       "YouTube",
-    ),
     channelUrl: getChannelUrl(video),
     thumbnail: `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
-    avatar: getAvatarUrl(video),
+    avatar: video.avatar || getAvatarUrl(video),
   };
 }
 
 export function getChannelUrl(video) {
-  const endpoint = utils.getValue(
-    video,
-    ["shortBylineText", "runs", 0, "navigationEndpoint"],
-    null,
-  );
+  let endpoint =
+    utils.getValue(
+      video,
+      ["shortBylineText", "runs", 0, "navigationEndpoint"],
+      null,
+    ) ||
+    utils.getValue(video, ["ownerText", "runs", 0, "navigationEndpoint"], null);
+
+  if (endpoint?.innertubeCommand) {
+    endpoint = endpoint.innertubeCommand;
+  }
 
   const path =
     utils.getValue(
@@ -129,6 +152,134 @@ export function getChannelUrl(video) {
     ) || utils.getValue(endpoint, ["browseEndpoint", "canonicalBaseUrl"], "");
 
   return utils.normalizeYouTubeUrl(path);
+}
+
+function collectPlaylistVideos(value, results) {
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  if (value.playlistVideoRenderer?.videoId) {
+    results.push(value);
+
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectPlaylistVideos(item, results);
+    }
+
+    return;
+  }
+
+  for (const child of Object.values(value)) {
+    collectPlaylistVideos(child, results);
+  }
+}
+
+function collectLockupVideos(value, results) {
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  if (
+    value.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" &&
+    value.contentId
+  ) {
+    results.push(createVideoFromLockup(value));
+
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectLockupVideos(item, results);
+    }
+
+    return;
+  }
+
+  for (const child of Object.values(value)) {
+    collectLockupVideos(child, results);
+  }
+}
+
+function createVideoFromLockup(lockup) {
+  const metadata = lockup.metadata?.lockupMetadataViewModel;
+  const channelCommand = findBrowseEndpoint(metadata);
+
+  return {
+    videoId: lockup.contentId,
+
+    title: {
+      runs: [
+        {
+          text: metadata?.title?.content || "Untitled",
+        },
+      ],
+    },
+
+    ownerText: {
+      runs: [
+        {
+          text:
+            metadata?.metadata?.contentMetadataViewModel?.metadataRows?.[0]
+              ?.metadataParts?.[0]?.text?.content || "YouTube",
+
+          navigationEndpoint: channelCommand || null,
+        },
+      ],
+    },
+
+    avatar:
+      metadata?.image?.decoratedAvatarViewModel?.avatar?.avatarViewModel?.image
+        ?.sources?.[0]?.url || "",
+
+    hasWatchProgress: hasLockupWatchProgress(lockup),
+  };
+}
+
+function hasLockupWatchProgress(lockup) {
+  return Boolean(
+    lockup.thumbnail?.thumbnailViewModel?.overlays?.some(
+      (overlay) =>
+        overlay.thumbnailOverlayProgressBarViewModel ||
+        overlay.thumbnailOverlayResumePlaybackRenderer,
+    ),
+  );
+}
+
+function findBrowseEndpoint(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  if (value.browseEndpoint || value.commandMetadata?.webCommandMetadata?.url) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findBrowseEndpoint(item);
+
+      if (found) {
+        return found;
+      }
+    }
+
+    return null;
+  }
+
+  for (const child of Object.values(value)) {
+    const found = findBrowseEndpoint(child);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
 }
 
 export function findChannelAvatarUrl(json) {

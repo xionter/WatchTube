@@ -82,7 +82,15 @@ export function extractPlaylistId(value) {
 
   const matchedPlaylistId = input.match(/(?:^|[?&])list=([^&]+)/)?.[1] || "";
 
-  return decodePlaylistId(matchedPlaylistId);
+  if (matchedPlaylistId) {
+    return decodePlaylistId(matchedPlaylistId);
+  }
+
+  if (isStandalonePlaylistId(input)) {
+    return input;
+  }
+
+  return "";
 }
 
 export function buildPlaylistUrl(playlistId) {
@@ -161,6 +169,12 @@ function decodePlaylistId(value) {
   } catch {
     return String(value || "").trim();
   }
+}
+
+function isStandalonePlaylistId(value) {
+  return /^(LL|WL|FL|RD[A-Za-z0-9_-]*|UU[A-Za-z0-9_-]{20,}|PL[A-Za-z0-9_-]{10,}|OLAK5uy[A-Za-z0-9_-]+)$/.test(
+    value,
+  );
 }
 
 function isObject(value) {
