@@ -12,7 +12,10 @@ export function resetRenderState() {
   rowStates.clear();
 }
 
-export function renderFeedRow(grid, { rowId, title, videos, loadAvatar }) {
+export function renderFeedRow(
+  grid,
+  { rowId, title, videos, loadAvatar, controls = null, controlsSignature = "" },
+) {
   const mounted = ensureMountedSection(grid, rowId);
 
   if (!mounted) {
@@ -33,9 +36,12 @@ export function renderFeedRow(grid, { rowId, title, videos, loadAvatar }) {
       grid,
       title,
       sourceSignature: buildRenderSignature(videos),
+      controls,
+      controlsSignature,
       videos,
       loadAvatar,
     });
+    syncRowControls(section, rowId, controls);
     ensureSectionPosition(grid, section);
 
     return;
@@ -46,11 +52,98 @@ export function renderFeedRow(grid, { rowId, title, videos, loadAvatar }) {
     title,
     videos,
     loadAvatar,
+    controls,
+    controlsSignature,
     picks: getStablePicks(videos, state?.displayedUrls),
   });
 }
 
-function shuffleFeedRow(grid, { rowId, title, videos, loadAvatar }) {
+export function renderAddPlaylistRow(grid, { onAdd }) {
+  const mounted = ensureMountedSection(grid, "playlist-add");
+
+  if (!mounted) {
+    return;
+  }
+
+  renderInProgress = true;
+
+  try {
+    const { section } = mounted;
+    const button = document.createElement("button");
+    const copy = document.createElement("span");
+    const icon = document.createElement("span");
+
+    section.classList.add("watchtube-add-section");
+    section.replaceChildren();
+
+    button.className = "watchtube-add-playlist";
+    button.dataset.watchtubeRow = "playlist-add";
+    button.type = "button";
+    button.setAttribute("aria-label", "Add playlist row");
+
+    icon.className = "watchtube-add-playlist-icon";
+    icon.textContent = "+";
+
+    copy.className = "watchtube-add-playlist-copy";
+    copy.textContent = "Add playlist row";
+
+    button.append(icon, copy);
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onAdd?.();
+    });
+
+    section.append(button);
+  } finally {
+    renderInProgress = false;
+  }
+}
+
+export function renderEditModeButton(grid, { isEditing, onToggle }) {
+  const mounted = ensureMountedSection(grid, "watchtube-edit");
+
+  if (!mounted) {
+    return;
+  }
+
+  renderInProgress = true;
+
+  try {
+    const { section } = mounted;
+    const button = document.createElement("button");
+
+    section.classList.add("watchtube-edit-section");
+    section.replaceChildren();
+
+    button.className = isEditing
+      ? "watchtube-edit-mode-button watchtube-edit-mode-button-active"
+      : "watchtube-edit-mode-button";
+    button.dataset.watchtubeUi = "true";
+    button.dataset.watchtubeRow = "watchtube-edit";
+    button.type = "button";
+    button.textContent = isEditing ? "Done" : "Edit rows";
+    button.setAttribute(
+      "aria-label",
+      isEditing ? "Finish editing rows" : "Edit homepage rows",
+    );
+
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onToggle?.();
+    });
+
+    section.append(button);
+  } finally {
+    renderInProgress = false;
+  }
+}
+
+function shuffleFeedRow(
+  grid,
+  { rowId, title, videos, loadAvatar, controls, controlsSignature },
+) {
   const mounted = ensureMountedSection(grid, rowId);
 
   if (!mounted) {
@@ -62,13 +155,15 @@ function shuffleFeedRow(grid, { rowId, title, videos, loadAvatar }) {
     title,
     videos,
     loadAvatar,
+    controls,
+    controlsSignature,
     picks: getRandomPicks(videos),
   });
 }
 
 function replaceFeedRowContents(
   section,
-  { rowId, title, videos, loadAvatar, picks },
+  { rowId, title, videos, loadAvatar, controls, controlsSignature, picks },
 ) {
   renderInProgress = true;
 
@@ -76,9 +171,15 @@ function replaceFeedRowContents(
     sectionCache.set(rowId, section);
     section.replaceChildren();
 
+    section.classList.remove("watchtube-add-section");
+    section.classList.remove("watchtube-edit-section");
+
     const button = createShuffleButton(rowId);
 
+    button.hidden = !videos.length;
+
     section.append(button);
+    syncRowControls(section, rowId, controls);
 
     for (const video of picks) {
       section.append(createGridItem(video, rowId, title, loadAvatar));
@@ -88,6 +189,8 @@ function replaceFeedRowContents(
       grid: section.parentElement,
       title,
       sourceSignature: buildRenderSignature(videos),
+      controls,
+      controlsSignature,
       videos,
       loadAvatar,
       displayedUrls: picks.map((video) => video.url),
@@ -189,17 +292,6 @@ function ensureMountedSection(grid, rowId) {
 
 function ensureSectionPosition(grid, section) {
   const firstFeedItem = findFirstFeedItem(grid);
-  const sectionIsBeforeFeed =
-    firstFeedItem &&
-    section.parentElement === grid &&
-    Boolean(
-      section.compareDocumentPosition(firstFeedItem) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-
-  if (sectionIsBeforeFeed) {
-    return;
-  }
 
   if (firstFeedItem) {
     grid.insertBefore(section, firstFeedItem);
@@ -257,6 +349,8 @@ function createShuffleButton(rowId) {
         title: state.title,
         videos: state.videos,
         loadAvatar: state.loadAvatar,
+        controls: state.controls,
+        controlsSignature: state.controlsSignature,
       });
     } finally {
       setTimeout(() => {
@@ -341,10 +435,104 @@ export function isWatchTubeNode(node) {
   }
 
   return Boolean(
+    node.closest("[data-watchtube-ui]") ||
     node.closest("[data-watchtube-row]") ||
     node.classList.contains("watchtube-shuffle") ||
     node.closest(".watchtube-shuffle"),
   );
+}
+
+function syncRowControls(section, rowId, controls) {
+  section.querySelector(".watchtube-row-controls")?.remove();
+
+  if (!controls) {
+    return;
+  }
+
+  section.prepend(createRowControls(rowId, controls));
+}
+
+function createRowControls(rowId, controls) {
+  const wrapper = document.createElement("div");
+
+  wrapper.className = "watchtube-row-controls";
+  wrapper.dataset.watchtubeRow = rowId;
+  wrapper.setAttribute("aria-label", "Row controls");
+
+  wrapper.append(
+    createControlButton({
+      label: "Move row up",
+      text: "↑",
+      disabled: Boolean(controls.disableMoveUp),
+      onClick: controls.onMoveUp,
+    }),
+    createControlButton({
+      label: "Move row down",
+      text: "↓",
+      disabled: Boolean(controls.disableMoveDown),
+      onClick: controls.onMoveDown,
+    }),
+    createControlButton({
+      label: controls.unwatchedOnly
+        ? "Showing only unwatched videos"
+        : "Showing all videos",
+      text: controls.unwatchedOnly ? "Unwatched" : "All",
+      wide: true,
+      active: Boolean(controls.unwatchedOnly),
+      onClick: controls.onToggleUnwatchedOnly,
+    }),
+  );
+
+  if (controls.canRemove) {
+    wrapper.append(
+      createControlButton({
+        label: "Remove playlist row",
+        text: "×",
+        danger: true,
+        onClick: controls.onRemove,
+      }),
+    );
+  }
+
+  return wrapper;
+}
+
+function createControlButton({
+  label,
+  text,
+  disabled = false,
+  danger = false,
+  wide = false,
+  active = false,
+  onClick,
+}) {
+  const button = document.createElement("button");
+
+  button.className = [
+    "watchtube-row-control",
+    danger ? "watchtube-row-control-danger" : "",
+    wide ? "watchtube-row-control-wide" : "",
+    active ? "watchtube-row-control-active" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  button.dataset.watchtubeUi = "true";
+  button.type = "button";
+  button.disabled = disabled;
+  button.textContent = text;
+  button.setAttribute("aria-label", label);
+  button.title = label;
+
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!button.disabled) {
+      onClick?.();
+    }
+  });
+
+  return button;
 }
 
 function buildRenderSignature(videos) {

@@ -13,57 +13,19 @@
           <p class="popup-eyebrow">WatchTube</p>
           <h1 class="popup-title">Homepage Settings</h1>
           <p class="popup-subtitle">
-            Mix YouTube recommendations with playlist rows you control.
+            Keep YouTube's short-form feed out of the way.
           </p>
         </div>
 
-        <section class="panel playlist-panel" aria-labelledby="playlistPanelTitle">
-          <div class="panel-head">
-            <div>
-              <h2 id="playlistPanelTitle" class="panel-title">Playlists</h2>
-              <p class="panel-copy">Each enabled playlist becomes a homepage row with unwatched videos.</p>
-            </div>
-          </div>
-
-          <form id="playlistForm" class="playlist-form">
-            <input
-              id="playlistUrl"
-              class="playlist-input"
-              type="text"
-              inputmode="url"
-              placeholder="Paste a YouTube playlist link"
-              autocomplete="off"
-            />
-
-            <button id="addPlaylist" class="primary-action" type="submit">
-              Add playlist
-            </button>
-          </form>
-
-          <p
-            id="playlistStatus"
-            class="playlist-status"
-            role="status"
-            aria-live="polite"
-            hidden
-          ></p>
-          <div id="playlistList" class="playlist-list"></div>
-          <p id="playlistEmpty" class="empty-state" hidden>
-            No playlist rows yet.
-          </p>
-        </section>
-
         <div class="settings-group">
-          <label class="toggle-row" for="showSubscriptions">
+          <label class="toggle-row" for="enabled">
             <div class="toggle-copy">
-              <span class="toggle-label">Subscription videos row</span>
-              <span id="showSubscriptionsState" class="toggle-state">
-                Enabled
-              </span>
+              <span class="toggle-label">WatchTube</span>
+              <span id="enabledState" class="toggle-state"> On </span>
             </div>
 
             <span class="switch">
-              <input id="showSubscriptions" type="checkbox" />
+              <input id="enabled" type="checkbox" />
               <span class="slider"></span>
             </span>
           </label>
@@ -79,12 +41,6 @@
               <span class="slider"></span>
             </span>
           </label>
-        </div>
-
-        <div class="quick-actions" aria-label="Quick actions">
-          <button id="openSubscriptions" class="secondary-action" type="button">
-            Open Subscriptions
-          </button>
         </div>
       </section>
     </main>

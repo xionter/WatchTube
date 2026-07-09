@@ -131,7 +131,7 @@ function extractRenderedVideo(item) {
   const host = item.querySelector('[class*="ytLockupViewModelHost"]');
   const videoId = getRenderedVideoId(host);
 
-  if (!videoId || hasRenderedWatchProgress(item)) {
+  if (!videoId) {
     return null;
   }
 
@@ -159,6 +159,8 @@ function extractRenderedVideo(item) {
     thumbnail: getRenderedThumbnail(item, videoId),
 
     avatar: getRenderedAvatar(item),
+
+    hasWatchProgress: hasRenderedWatchProgress(item),
   };
 }
 

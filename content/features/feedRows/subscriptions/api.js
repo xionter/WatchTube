@@ -31,14 +31,13 @@ export async function fetchSubscriptionVideos() {
   const videos = [];
 
   for (const item of contents) {
-    if (parser.hasWatchProgressMarker(item)) {
-      continue;
-    }
-
     const video = parser.extractVideo(item);
 
     if (video) {
-      videos.push(video);
+      videos.push({
+        ...video,
+        hasWatchProgress: parser.hasWatchProgressMarker(item),
+      });
     }
   }
 

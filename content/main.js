@@ -21,7 +21,12 @@ let refreshRequestedForceDuringFlight = false;
 let pendingGridRetry = null;
 let pendingGridRetryForceDataRefresh = false;
 let lastAccountKey = null;
-let renderedPlaylistRowIds = new Set();
+let renderedFeedRowIds = new Set();
+let addPlaylistDialog = null;
+let editMode = false;
+let handledEditModeRequest = null;
+let bootstrapRefreshTimer = null;
+let bootstrapRefreshAttempts = 0;
 
 start();
 
@@ -29,15 +34,43 @@ function start() {
   void ensureStyleElement();
 
   watchYoutubeNavigation();
+  watchPageReadiness();
   watchYoutubeDom();
   watchStorageChanges();
+  void activateRequestedEditMode();
 
-  scheduleRefresh({ forceDataRefresh: true });
+  scheduleRefresh();
+  startBootstrapRefreshes();
 }
 
 function watchYoutubeNavigation() {
   window.addEventListener("yt-navigate-finish", () => {
-    scheduleRefresh({ forceDataRefresh: true });
+    scheduleRefresh();
+    startBootstrapRefreshes();
+  });
+}
+
+function watchPageReadiness() {
+  window.addEventListener("DOMContentLoaded", () => {
+    scheduleRefresh();
+    startBootstrapRefreshes();
+  });
+
+  window.addEventListener("load", () => {
+    scheduleRefresh();
+    startBootstrapRefreshes();
+  });
+
+  window.addEventListener("pageshow", () => {
+    scheduleRefresh();
+    startBootstrapRefreshes();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      scheduleRefresh();
+      startBootstrapRefreshes();
+    }
   });
 }
 
@@ -74,6 +107,10 @@ function watchStorageChanges() {
       return;
     }
 
+    if (changes[constants.EDIT_MODE_REQUEST_KEY]) {
+      void activateRequestedEditMode();
+    }
+
     if (!hasRelevantStorageChange(changes)) {
       return;
     }
@@ -102,6 +139,33 @@ function scheduleRefresh({ forceDataRefresh = false } = {}) {
   });
 }
 
+function startBootstrapRefreshes({ forceDataRefresh = false } = {}) {
+  if (!youtube.isHomePage()) {
+    return;
+  }
+
+  bootstrapRefreshAttempts = 0;
+
+  if (bootstrapRefreshTimer) {
+    window.clearInterval(bootstrapRefreshTimer);
+  }
+
+  bootstrapRefreshTimer = window.setInterval(() => {
+    bootstrapRefreshAttempts += 1;
+
+    if (!youtube.isHomePage() || bootstrapRefreshAttempts > 20) {
+      window.clearInterval(bootstrapRefreshTimer);
+      bootstrapRefreshTimer = null;
+
+      return;
+    }
+
+    scheduleRefresh({
+      forceDataRefresh: forceDataRefresh && bootstrapRefreshAttempts === 1,
+    });
+  }, 750);
+}
+
 async function refreshPage({ forceDataRefresh = false } = {}) {
   if (refreshInFlight) {
     refreshRequestedDuringFlight = true;
@@ -118,11 +182,18 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
       await ensureStyleElement();
     }
 
+    if (!settings.enabled) {
+      applyShortsVisibility(false);
+      closeAddPlaylistDialog();
+      clearManagedRows();
+
+      return;
+    }
+
     applyShortsVisibility(settings.hideShorts);
 
     if (!youtube.isHomePage()) {
-      clearPlaylistRows();
-      clearSubscriptions();
+      clearManagedRows();
 
       return;
     }
@@ -148,8 +219,7 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
     if (lastAccountKey && lastAccountKey !== currentAccountKey) {
       forceDataRefresh = true;
       feedRowRenderer.resetRenderState();
-      clearPlaylistRows();
-      clearSubscriptions();
+      clearManagedRows();
     }
 
     lastAccountKey = currentAccountKey;
@@ -178,8 +248,7 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
 
     if (account.getCurrentAccountKey() !== currentAccountKey) {
       feedRowRenderer.resetRenderState();
-      clearPlaylistRows();
-      clearSubscriptions();
+      clearManagedRows();
       refreshRequestedDuringFlight = true;
       refreshRequestedForceDuringFlight = true;
 
@@ -187,22 +256,29 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
     }
 
     settings = await syncStoredPlaylistTitles(settings, playlistRows);
-    syncPlaylistRows(grid, playlistRows);
+    feedRowRenderer.renderEditModeButton(grid, {
+      isEditing: editMode,
+      onToggle: () => {
+        setEditMode(!editMode);
+      },
+    });
 
-    if (settings.showSubscriptions) {
-      if (subscriptionVideos.length) {
-        feedRowRenderer.renderFeedRow(grid, {
-          rowId: "subscriptions",
-          title: "Subscriptions",
-          videos: subscriptionVideos,
-          loadAvatar: playlists.api.getChannelAvatarUrl,
-        });
-      } else {
-        clearSubscriptions();
-      }
+    if (editMode) {
+      feedRowRenderer.renderAddPlaylistRow(grid, {
+        onAdd: () => {
+          void openAddPlaylistDialog();
+        },
+      });
     } else {
-      clearSubscriptions();
+      feedRowRenderer.removeFeedRow("playlist-add");
     }
+
+    syncFeedRows({
+      grid,
+      settings,
+      playlistRows,
+      subscriptionVideos,
+    });
   })();
 
   try {
@@ -287,9 +363,33 @@ function clearPendingRefresh(timeoutId) {
   return null;
 }
 
-function clearSubscriptions() {
-  feedRowRenderer.removeFeedRow("subscriptions");
-  feedRowRenderer.clearRenderState("subscriptions");
+async function activateRequestedEditMode() {
+  const stored = await chrome.storage.local.get(constants.EDIT_MODE_REQUEST_KEY);
+  const request = stored[constants.EDIT_MODE_REQUEST_KEY];
+  const requestId = String(request?.id || "");
+  const requestedAt = Number(request?.requestedAt || 0);
+  const requestIsFresh = Date.now() - requestedAt < 60 * 1000;
+
+  if (!requestId || requestId === handledEditModeRequest || !requestIsFresh) {
+    return;
+  }
+
+  handledEditModeRequest = requestId;
+  setEditMode(true);
+}
+
+function setEditMode(isEditing) {
+  if (editMode === isEditing) {
+    return;
+  }
+
+  editMode = isEditing;
+
+  if (!editMode) {
+    closeAddPlaylistDialog();
+  }
+
+  scheduleRefresh();
 }
 
 async function syncStoredPlaylistTitles(settings, playlistRows) {
@@ -330,62 +430,675 @@ async function syncStoredPlaylistTitles(settings, playlistRows) {
   });
 }
 
-function syncPlaylistRows(grid, playlistRows) {
+function syncFeedRows({ grid, settings, playlistRows, subscriptionVideos }) {
+  const records = buildFeedRowRecords({
+    settings,
+    playlistRows,
+    subscriptionVideos,
+  });
   const nextRenderedRowIds = new Set();
 
-  for (const { playlist, data } of playlistRows) {
-    const rowId = getPlaylistRowId(playlist);
-    const videos = Array.isArray(data?.videos) ? data.videos : [];
-
-    if (!videos.length) {
-      clearPlaylistRow(rowId);
+  for (const [index, record] of records.entries()) {
+    if (!record.videos.length && !editMode) {
+      clearFeedRow(record.rowId);
       continue;
     }
 
     feedRowRenderer.renderFeedRow(grid, {
-      rowId,
-      title: data?.title || playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
-      videos,
+      rowId: record.rowId,
+      title: record.title,
+      videos: record.videos,
       loadAvatar: playlists.api.getChannelAvatarUrl,
+      controls: editMode
+        ? createRowControls({
+            record,
+            index,
+            rowCount: records.length,
+          })
+        : null,
+      controlsSignature: [
+        editMode,
+        record.rowId,
+        index,
+        records.length,
+        record.unwatchedOnly,
+      ].join(":"),
     });
 
-    nextRenderedRowIds.add(rowId);
+    nextRenderedRowIds.add(record.rowId);
   }
 
-  for (const rowId of renderedPlaylistRowIds) {
+  for (const rowId of renderedFeedRowIds) {
     if (!nextRenderedRowIds.has(rowId)) {
-      clearPlaylistRow(rowId);
+      clearFeedRow(rowId);
     }
   }
 
-  renderedPlaylistRowIds = nextRenderedRowIds;
+  renderedFeedRowIds = nextRenderedRowIds;
 }
 
-function clearPlaylistRows() {
-  const rowIds = new Set(renderedPlaylistRowIds);
+function buildFeedRowRecords({ settings, playlistRows, subscriptionVideos }) {
+  const playlistRowsByRowId = new Map(
+    playlistRows.map((row) => [
+      settingsStore.getPlaylistRowId(row.playlist.playlistId),
+      row,
+    ]),
+  );
+  const recordsByRowId = new Map();
 
-  document
-    .querySelectorAll('.watchtube-section[data-watchtube-row^="playlist-"]')
-    .forEach((section) => {
-      const rowId = section.dataset.watchtubeRow;
+  for (const [rowId, { playlist, data }] of playlistRowsByRowId) {
+    const videos = filterVideosByWatchState(
+      Array.isArray(data?.videos) ? data.videos : [],
+      playlist.unwatchedOnly,
+    );
 
-      if (rowId) {
-        rowIds.add(rowId);
-      }
+    recordsByRowId.set(rowId, {
+      rowId,
+      type: "playlist",
+      playlist,
+      title: data?.title || playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
+      videos,
+      unwatchedOnly: playlist.unwatchedOnly,
     });
-
-  for (const rowId of rowIds) {
-    clearPlaylistRow(rowId);
   }
 
-  renderedPlaylistRowIds = new Set();
+  if (settings.showSubscriptions) {
+    recordsByRowId.set(constants.SUBSCRIPTIONS_ROW_ID, {
+      rowId: constants.SUBSCRIPTIONS_ROW_ID,
+      type: "subscriptions",
+      title: "Subscriptions",
+      videos: filterVideosByWatchState(
+        subscriptionVideos,
+        settings.subscriptionsUnwatchedOnly,
+      ),
+      unwatchedOnly: settings.subscriptionsUnwatchedOnly,
+    });
+  }
+
+  const orderedRecords = [];
+
+  for (const rowId of settings.rowOrder) {
+    const record = recordsByRowId.get(rowId);
+
+    if (!record) {
+      continue;
+    }
+
+    orderedRecords.push(record);
+    recordsByRowId.delete(rowId);
+  }
+
+  orderedRecords.push(...recordsByRowId.values());
+
+  return orderedRecords;
 }
 
-function clearPlaylistRow(rowId) {
+function filterVideosByWatchState(videos, unwatchedOnly) {
+  if (!unwatchedOnly) {
+    return videos;
+  }
+
+  return videos.filter((video) => !video.hasWatchProgress);
+}
+
+function clearManagedRows() {
+  const rowIds = new Set(renderedFeedRowIds);
+
+  document.querySelectorAll(".watchtube-section").forEach((section) => {
+    const rowId = section.dataset.watchtubeRow;
+
+    if (rowId) {
+      rowIds.add(rowId);
+    }
+  });
+
+  for (const rowId of rowIds) {
+    clearFeedRow(rowId);
+  }
+
+  renderedFeedRowIds = new Set();
+}
+
+function clearFeedRow(rowId) {
   feedRowRenderer.removeFeedRow(rowId);
   feedRowRenderer.clearRenderState(rowId);
 }
 
-function getPlaylistRowId(playlist) {
-  return `playlist-${playlist.id || playlist.playlistId}`;
+function createRowControls({ record, index, rowCount }) {
+  return {
+    disableMoveUp: index <= 0,
+    disableMoveDown: index >= rowCount - 1,
+    unwatchedOnly: record.unwatchedOnly,
+    canRemove: true,
+    onMoveUp: () => {
+      void moveRow(record.rowId, -1);
+    },
+    onMoveDown: () => {
+      void moveRow(record.rowId, 1);
+    },
+    onToggleUnwatchedOnly: () => {
+      void toggleRowUnwatchedOnly(record);
+    },
+    onRemove: () => {
+      void removeRowWithConfirmation(record);
+    },
+  };
+}
+
+async function moveRow(rowId, direction) {
+  const settings = await settingsStore.readSettings();
+  const activeRowIds = getActiveRowIds(settings);
+  const activeIndex = activeRowIds.indexOf(rowId);
+  const swapRowId = activeRowIds[activeIndex + direction];
+
+  if (!swapRowId) {
+    return;
+  }
+
+  await settingsStore.writeSettings({
+    ...settings,
+    rowOrder: swapRowIds(settings.rowOrder, rowId, swapRowId),
+  });
+}
+
+function getActiveRowIds(settings) {
+  const activeRows = new Set(
+    settings.playlists
+      .filter((playlist) => playlist.enabled)
+      .map((playlist) => settingsStore.getPlaylistRowId(playlist.playlistId)),
+  );
+
+  if (settings.showSubscriptions) {
+    activeRows.add(constants.SUBSCRIPTIONS_ROW_ID);
+  }
+
+  return settings.rowOrder.filter((rowId) => activeRows.has(rowId));
+}
+
+function swapRowIds(rowOrder, rowId, swapRowId) {
+  const nextRowOrder = [...rowOrder];
+  const currentIndex = nextRowOrder.indexOf(rowId);
+  const swapIndex = nextRowOrder.indexOf(swapRowId);
+
+  if (currentIndex < 0 || swapIndex < 0) {
+    return nextRowOrder;
+  }
+
+  [nextRowOrder[currentIndex], nextRowOrder[swapIndex]] = [
+    nextRowOrder[swapIndex],
+    nextRowOrder[currentIndex],
+  ];
+
+  return nextRowOrder;
+}
+
+async function toggleRowUnwatchedOnly(record) {
+  const settings = await settingsStore.readSettings();
+
+  if (record.type === "subscriptions") {
+    await settingsStore.writeSettings({
+      ...settings,
+      subscriptionsUnwatchedOnly: !settings.subscriptionsUnwatchedOnly,
+    });
+
+    return;
+  }
+
+  await settingsStore.writeSettings({
+    ...settings,
+    playlists: settings.playlists.map((playlist) =>
+      playlist.playlistId === record.playlist.playlistId
+        ? {
+            ...playlist,
+            unwatchedOnly: !playlist.unwatchedOnly,
+          }
+        : playlist,
+    ),
+  });
+}
+
+async function removeRowWithConfirmation(record) {
+  const title =
+    record.type === "subscriptions"
+      ? "Subscriptions"
+      : record.playlist.title || constants.DEFAULT_PLAYLIST_TITLE;
+  const shouldRemove = window.confirm(`Remove "${title}" from WatchTube?`);
+
+  if (!shouldRemove) {
+    return;
+  }
+
+  const settings = await settingsStore.readSettings();
+
+  if (record.type === "subscriptions") {
+    await settingsStore.writeSettings({
+      ...settings,
+      showSubscriptions: false,
+    });
+
+    return;
+  }
+
+  await settingsStore.writeSettings({
+    ...settings,
+    playlists: settings.playlists.filter(
+      (entry) => entry.playlistId !== record.playlist.playlistId,
+    ),
+    rowOrder: settings.rowOrder.filter((entry) => entry !== record.rowId),
+  });
+}
+
+function openAddPlaylistDialog() {
+  closeAddPlaylistDialog();
+
+  addPlaylistDialog = createAddPlaylistDialog();
+  document.documentElement.append(addPlaylistDialog.overlay);
+  addPlaylistDialog.input.focus();
+}
+
+function closeAddPlaylistDialog() {
+  addPlaylistDialog?.overlay.remove();
+  addPlaylistDialog = null;
+}
+
+function createAddPlaylistDialog() {
+  const overlay = document.createElement("div");
+  const dialog = document.createElement("form");
+  const title = document.createElement("h2");
+  const pickerTitle = document.createElement("div");
+  const pickerStatus = document.createElement("p");
+  const pickerList = document.createElement("div");
+  const linkTitle = document.createElement("div");
+  const input = document.createElement("input");
+  const status = document.createElement("p");
+  const actions = document.createElement("div");
+  const cancelButton = document.createElement("button");
+  const addButton = document.createElement("button");
+
+  overlay.className = "watchtube-dialog-overlay";
+  overlay.dataset.watchtubeUi = "true";
+
+  dialog.className = "watchtube-dialog";
+  dialog.dataset.watchtubeUi = "true";
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.setAttribute("aria-label", "Add playlist row");
+
+  title.className = "watchtube-dialog-title";
+  title.textContent = "Add playlist row";
+
+  pickerTitle.className = "watchtube-dialog-section-title";
+  pickerTitle.textContent = "Rows";
+
+  pickerStatus.className = "watchtube-dialog-status";
+  pickerStatus.textContent = "Loading playlists...";
+
+  pickerList.className = "watchtube-playlist-picker";
+
+  linkTitle.className = "watchtube-dialog-section-title";
+  linkTitle.textContent = "External playlist link";
+
+  input.className = "watchtube-dialog-input";
+  input.type = "text";
+  input.placeholder = "Paste a YouTube playlist link";
+  input.autocomplete = "off";
+
+  status.className = "watchtube-dialog-status";
+  status.hidden = true;
+
+  actions.className = "watchtube-dialog-actions";
+
+  cancelButton.className = "watchtube-dialog-button";
+  cancelButton.type = "button";
+  cancelButton.textContent = "Cancel";
+  cancelButton.addEventListener("click", () => {
+    if (!input.disabled) {
+      closeAddPlaylistDialog();
+    }
+  });
+
+  addButton.className = "watchtube-dialog-button watchtube-dialog-button-primary";
+  addButton.type = "submit";
+  addButton.textContent = "Add";
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay && !input.disabled) {
+      closeAddPlaylistDialog();
+    }
+  });
+
+  overlay.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !input.disabled) {
+      closeAddPlaylistDialog();
+    }
+  });
+
+  dialog.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    await addPlaylistFromDialog({
+      input,
+      status,
+      addButton,
+      cancelButton,
+      pickerList,
+    });
+  });
+
+  actions.append(cancelButton, addButton);
+  dialog.append(
+    title,
+    pickerTitle,
+    pickerStatus,
+    pickerList,
+    linkTitle,
+    input,
+    status,
+    actions,
+  );
+  overlay.append(dialog);
+
+  void loadPlaylistPicker({
+    pickerList,
+    pickerStatus,
+    status,
+    input,
+    addButton,
+    cancelButton,
+  });
+
+  return {
+    overlay,
+    input,
+  };
+}
+
+async function addPlaylistFromDialog({
+  input,
+  status,
+  addButton,
+  cancelButton,
+  pickerList,
+}) {
+  const playlistId = settingsStore.extractPlaylistId(input.value);
+
+  if (!playlistId) {
+    setDialogStatus(status, "Paste a valid YouTube playlist link.", "error");
+
+    return;
+  }
+
+  await addPlaylistToSettings({
+    playlistId,
+    title: constants.DEFAULT_PLAYLIST_TITLE,
+    status,
+    input,
+    addButton,
+    cancelButton,
+    pickerList,
+    preloadTitle: true,
+  });
+}
+
+async function loadPlaylistPicker({
+  pickerList,
+  pickerStatus,
+  status,
+  input,
+  addButton,
+  cancelButton,
+}) {
+  try {
+    const [availablePlaylists, settings] = await Promise.all([
+      playlists.api.fetchAvailablePlaylists(),
+      settingsStore.readSettings(),
+    ]);
+    const addedPlaylistIds = new Set(
+      settings.playlists.map((playlist) => playlist.playlistId),
+    );
+
+    pickerList.replaceChildren();
+
+    if (!settings.showSubscriptions) {
+      pickerList.append(
+        createSubscriptionPickerButton({
+          status,
+          input,
+          addButton,
+          cancelButton,
+          pickerList,
+        }),
+      );
+    }
+
+    if (!availablePlaylists.length && settings.showSubscriptions) {
+      pickerStatus.textContent = "No playlists found.";
+
+      return;
+    }
+
+    pickerStatus.hidden = true;
+
+    for (const playlist of availablePlaylists) {
+      pickerList.append(
+        createPlaylistPickerButton({
+          playlist,
+          added: addedPlaylistIds.has(playlist.playlistId),
+          status,
+          input,
+          addButton,
+          cancelButton,
+          pickerList,
+        }),
+      );
+    }
+  } catch (error) {
+    console.warn("WatchTube: failed to load playlist picker", error);
+    pickerStatus.textContent = "Could not load your playlists.";
+  }
+}
+
+function createSubscriptionPickerButton({
+  status,
+  input,
+  addButton,
+  cancelButton,
+  pickerList,
+}) {
+  const button = document.createElement("button");
+  const title = document.createElement("span");
+  const state = document.createElement("span");
+
+  button.className = "watchtube-playlist-picker-item";
+  button.type = "button";
+  button.dataset.added = "false";
+
+  title.className = "watchtube-playlist-picker-title";
+  title.textContent = "Subscriptions";
+
+  state.className = "watchtube-playlist-picker-state";
+
+  button.append(title, state);
+  button.addEventListener("click", async () => {
+    await addSubscriptionsToSettings({
+      status,
+      input,
+      addButton,
+      cancelButton,
+      pickerList,
+    });
+  });
+
+  return button;
+}
+
+function createPlaylistPickerButton({
+  playlist,
+  added,
+  status,
+  input,
+  addButton,
+  cancelButton,
+  pickerList,
+}) {
+  const button = document.createElement("button");
+  const title = document.createElement("span");
+  const state = document.createElement("span");
+
+  button.className = "watchtube-playlist-picker-item";
+  button.type = "button";
+  button.disabled = added;
+  button.dataset.added = added ? "true" : "false";
+
+  title.className = "watchtube-playlist-picker-title";
+  title.textContent = playlist.title || constants.DEFAULT_PLAYLIST_TITLE;
+
+  state.className = "watchtube-playlist-picker-state";
+  state.textContent = added ? "Added" : "";
+
+  button.append(title, state);
+  button.addEventListener("click", async () => {
+    await addPlaylistToSettings({
+      playlistId: playlist.playlistId,
+      title: playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
+      status,
+      input,
+      addButton,
+      cancelButton,
+      pickerList,
+      preloadTitle: false,
+    });
+  });
+
+  return button;
+}
+
+async function addPlaylistToSettings({
+  playlistId,
+  title,
+  status,
+  input,
+  addButton,
+  cancelButton,
+  pickerList,
+  preloadTitle,
+}) {
+  const settings = await settingsStore.readSettings();
+
+  if (
+    settings.playlists.some((playlist) => playlist.playlistId === playlistId)
+  ) {
+    setDialogStatus(status, "That playlist is already added.", "error");
+
+    return;
+  }
+
+  input.disabled = true;
+  addButton.disabled = true;
+  cancelButton.disabled = true;
+  setPickerButtonsDisabled(pickerList, true);
+  setDialogStatus(status, "Adding playlist...", "info");
+
+  let playlistTitle = title || constants.DEFAULT_PLAYLIST_TITLE;
+
+  try {
+    if (preloadTitle) {
+      const playlistData = await playlists.api.fetchPlaylist({ playlistId });
+
+      playlistTitle = playlistData.title || playlistTitle;
+    }
+  } catch (error) {
+    console.warn("WatchTube: failed to preload playlist", error);
+  }
+
+  try {
+    const latestSettings = await settingsStore.readSettings();
+
+    if (
+      latestSettings.playlists.some(
+        (playlist) => playlist.playlistId === playlistId,
+      )
+    ) {
+      setDialogStatus(status, "That playlist is already added.", "error");
+      input.disabled = false;
+      addButton.disabled = false;
+      cancelButton.disabled = false;
+      setPickerButtonsDisabled(pickerList, false);
+
+      return;
+    }
+
+    const playlist = settingsStore.createPlaylist({
+      playlistId,
+      title: playlistTitle,
+      enabled: true,
+    });
+
+    await settingsStore.writeSettings({
+      ...latestSettings,
+      playlists: [...latestSettings.playlists, playlist],
+      rowOrder: [
+        ...latestSettings.rowOrder,
+        settingsStore.getPlaylistRowId(playlist.playlistId),
+      ],
+    });
+
+    closeAddPlaylistDialog();
+  } catch (error) {
+    console.error("WatchTube: failed to add playlist", error);
+    setDialogStatus(status, "Playlist could not be added.", "error");
+    input.disabled = false;
+    addButton.disabled = false;
+    cancelButton.disabled = false;
+    setPickerButtonsDisabled(pickerList, false);
+  }
+}
+
+async function addSubscriptionsToSettings({
+  status,
+  input,
+  addButton,
+  cancelButton,
+  pickerList,
+}) {
+  input.disabled = true;
+  addButton.disabled = true;
+  cancelButton.disabled = true;
+  setPickerButtonsDisabled(pickerList, true);
+  setDialogStatus(status, "Adding subscriptions...", "info");
+
+  try {
+    const settings = await settingsStore.readSettings();
+
+    await settingsStore.writeSettings({
+      ...settings,
+      showSubscriptions: true,
+      rowOrder: settings.rowOrder.includes(constants.SUBSCRIPTIONS_ROW_ID)
+        ? settings.rowOrder
+        : [...settings.rowOrder, constants.SUBSCRIPTIONS_ROW_ID],
+    });
+
+    closeAddPlaylistDialog();
+  } catch (error) {
+    console.error("WatchTube: failed to add subscriptions", error);
+    setDialogStatus(status, "Subscriptions could not be added.", "error");
+    input.disabled = false;
+    addButton.disabled = false;
+    cancelButton.disabled = false;
+    setPickerButtonsDisabled(pickerList, false);
+  }
+}
+
+function setDialogStatus(status, text, tone) {
+  status.hidden = false;
+  status.dataset.tone = tone;
+  status.textContent = text;
+}
+
+function setPickerButtonsDisabled(pickerList, disabled) {
+  pickerList
+    ?.querySelectorAll(".watchtube-playlist-picker-item")
+    .forEach((button) => {
+      button.disabled = disabled || button.dataset.added === "true";
+    });
 }

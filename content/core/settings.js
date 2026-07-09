@@ -18,8 +18,13 @@ export async function writeSettings(settings) {
 
 export function normalizeSettings(rawSettings = {}) {
   const settings = isObject(rawSettings) ? rawSettings : {};
+  const playlists = normalizePlaylists(settings);
 
   return {
+    enabled: readBooleanSetting(
+      settings.enabled,
+      constants.DEFAULT_SETTINGS.enabled,
+    ),
     darkTheme: readBooleanSetting(
       settings.darkTheme,
       constants.DEFAULT_SETTINGS.darkTheme,
@@ -28,11 +33,16 @@ export function normalizeSettings(rawSettings = {}) {
       settings.showSubscriptions,
       constants.DEFAULT_SETTINGS.showSubscriptions,
     ),
+    subscriptionsUnwatchedOnly: readBooleanSetting(
+      settings.subscriptionsUnwatchedOnly,
+      constants.DEFAULT_SETTINGS.subscriptionsUnwatchedOnly,
+    ),
     hideShorts: readBooleanSetting(
       settings.hideShorts,
       constants.DEFAULT_SETTINGS.hideShorts,
     ),
-    playlists: normalizePlaylists(settings),
+    playlists,
+    rowOrder: normalizeRowOrder(settings, playlists),
   };
 }
 
@@ -40,6 +50,7 @@ export function createPlaylist({
   playlistId,
   title = constants.DEFAULT_PLAYLIST_TITLE,
   enabled = true,
+  unwatchedOnly = true,
 } = {}) {
   const normalizedPlaylistId = String(playlistId || "").trim();
 
@@ -53,6 +64,7 @@ export function createPlaylist({
     title: normalizePlaylistTitle(title),
     url: buildPlaylistUrl(normalizedPlaylistId),
     enabled: Boolean(enabled),
+    unwatchedOnly: Boolean(unwatchedOnly),
   };
 }
 
@@ -97,6 +109,18 @@ export function buildPlaylistUrl(playlistId) {
   return `${constants.PLAYLIST_URL}?list=${encodeURIComponent(playlistId)}`;
 }
 
+export function getPlaylistRowId(playlistId) {
+  return `${constants.PLAYLIST_ROW_PREFIX}${playlistId}`;
+}
+
+export function getPlaylistIdFromRowId(rowId) {
+  const value = String(rowId || "");
+
+  return value.startsWith(constants.PLAYLIST_ROW_PREFIX)
+    ? value.slice(constants.PLAYLIST_ROW_PREFIX.length)
+    : "";
+}
+
 function normalizePlaylists(settings) {
   if (Array.isArray(settings.playlists)) {
     return dedupePlaylists(settings.playlists.map(normalizePlaylist).filter(Boolean));
@@ -107,6 +131,7 @@ function normalizePlaylists(settings) {
       playlistId: constants.WATCH_LATER_PLAYLIST_ID,
       title: constants.WATCH_LATER_TITLE,
       enabled: settings.showWatchLater !== false,
+      unwatchedOnly: true,
     }),
   ];
 }
@@ -120,7 +145,42 @@ function normalizePlaylist(playlist) {
     playlistId: playlist.playlistId || playlist.id,
     title: playlist.title,
     enabled: playlist.enabled !== false,
+    unwatchedOnly: playlist.unwatchedOnly !== false,
   });
+}
+
+function normalizeRowOrder(settings, playlists) {
+  const validRowIds = new Set([
+    ...playlists.map((playlist) => getPlaylistRowId(playlist.playlistId)),
+    constants.SUBSCRIPTIONS_ROW_ID,
+  ]);
+  const rowOrder = [];
+
+  if (Array.isArray(settings.rowOrder)) {
+    for (const rowId of settings.rowOrder) {
+      const normalizedRowId = String(rowId || "").trim();
+
+      if (!validRowIds.has(normalizedRowId) || rowOrder.includes(normalizedRowId)) {
+        continue;
+      }
+
+      rowOrder.push(normalizedRowId);
+    }
+  }
+
+  for (const playlist of playlists) {
+    const rowId = getPlaylistRowId(playlist.playlistId);
+
+    if (!rowOrder.includes(rowId)) {
+      rowOrder.push(rowId);
+    }
+  }
+
+  if (!rowOrder.includes(constants.SUBSCRIPTIONS_ROW_ID)) {
+    rowOrder.push(constants.SUBSCRIPTIONS_ROW_ID);
+  }
+
+  return rowOrder;
 }
 
 function dedupePlaylists(playlists) {

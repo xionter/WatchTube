@@ -110,6 +110,15 @@ export function findPlaylistVideos(json) {
   return lockupVideos;
 }
 
+export function findAvailablePlaylists(json, html = "") {
+  const candidates = [];
+
+  collectAvailablePlaylists(json, candidates);
+  collectPlaylistLinksFromHtml(html, candidates);
+
+  return dedupePlaylistCandidates(candidates);
+}
+
 export function extractVideo(video) {
   if (!video?.videoId) {
     return null;
@@ -203,6 +212,203 @@ function collectLockupVideos(value, results) {
   for (const child of Object.values(value)) {
     collectLockupVideos(child, results);
   }
+}
+
+function collectAvailablePlaylists(value, results) {
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectAvailablePlaylists(item, results);
+    }
+
+    return;
+  }
+
+  const candidate = createPlaylistCandidate(value);
+
+  if (candidate) {
+    results.push(candidate);
+  }
+
+  for (const child of Object.values(value)) {
+    collectAvailablePlaylists(child, results);
+  }
+}
+
+function createPlaylistCandidate(value) {
+  if (value.videoId) {
+    return null;
+  }
+
+  const url =
+    getCommandUrl(value.navigationEndpoint) ||
+    getCommandUrl(value.command) ||
+    getCommandUrl(value.endpoint) ||
+    getCommandUrl(value) ||
+    "";
+  const playlistId =
+    normalizePlaylistId(value.playlistId) ||
+    normalizePlaylistId(value.contentId) ||
+    extractPlaylistIdFromUrl(url);
+
+  if (!isUserPlaylistId(playlistId)) {
+    return null;
+  }
+
+  const title =
+    extractText(value.title) ||
+    extractText(value.shortBylineText) ||
+    value.metadata?.lockupMetadataViewModel?.title?.content ||
+    value.title?.content ||
+    "";
+
+  return {
+    playlistId,
+    title: cleanPlaylistCandidateTitle(title),
+    url: constants.PLAYLIST_URL + `?list=${encodeURIComponent(playlistId)}`,
+  };
+}
+
+function collectPlaylistLinksFromHtml(html, results) {
+  if (!html || typeof DOMParser === "undefined") {
+    return;
+  }
+
+  const document = new DOMParser().parseFromString(html, "text/html");
+
+  document.querySelectorAll('a[href*="list="]').forEach((link) => {
+    const href = link.getAttribute("href") || "";
+
+    if (!href.includes("/playlist")) {
+      return;
+    }
+
+    const playlistId = extractPlaylistIdFromUrl(href);
+
+    if (!isUserPlaylistId(playlistId)) {
+      return;
+    }
+
+    results.push({
+      playlistId,
+      title: cleanPlaylistCandidateTitle(
+        link.getAttribute("aria-label") || link.textContent || "",
+      ),
+      url: constants.PLAYLIST_URL + `?list=${encodeURIComponent(playlistId)}`,
+    });
+  });
+}
+
+function dedupePlaylistCandidates(candidates) {
+  const seenPlaylistIds = new Set();
+  const deduped = [];
+
+  for (const candidate of candidates) {
+    if (!candidate?.playlistId || seenPlaylistIds.has(candidate.playlistId)) {
+      continue;
+    }
+
+    seenPlaylistIds.add(candidate.playlistId);
+    deduped.push({
+      ...candidate,
+      title: candidate.title || constants.DEFAULT_PLAYLIST_TITLE,
+    });
+  }
+
+  return deduped;
+}
+
+function extractText(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value.content === "string") {
+    return value.content;
+  }
+
+  if (typeof value.simpleText === "string") {
+    return value.simpleText;
+  }
+
+  if (Array.isArray(value.runs)) {
+    return value.runs.map((run) => run?.text || "").join("").trim();
+  }
+
+  if (typeof value.text === "string") {
+    return value.text;
+  }
+
+  return "";
+}
+
+function getCommandUrl(value) {
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+
+  return (
+    value.commandMetadata?.webCommandMetadata?.url ||
+    value.innertubeCommand?.commandMetadata?.webCommandMetadata?.url ||
+    value.browseEndpoint?.canonicalBaseUrl ||
+    value.urlEndpoint?.url ||
+    ""
+  );
+}
+
+function extractPlaylistIdFromUrl(value) {
+  const input = String(value || "").trim();
+
+  if (!input) {
+    return "";
+  }
+
+  const candidates = [
+    input,
+    input.startsWith("/") ? `https://www.youtube.com${input}` : "",
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
+    try {
+      return normalizePlaylistId(new URL(candidate).searchParams.get("list"));
+    } catch {}
+  }
+
+  const matchedPlaylistId = input.match(/(?:^|[?&])list=([^&]+)/)?.[1] || "";
+
+  return normalizePlaylistId(matchedPlaylistId);
+}
+
+function normalizePlaylistId(value) {
+  try {
+    return decodeURIComponent(String(value || "")).trim();
+  } catch {
+    return String(value || "").trim();
+  }
+}
+
+function isUserPlaylistId(playlistId) {
+  return /^(WL|LL|FL|PL[A-Za-z0-9_-]{10,}|OLAK5uy[A-Za-z0-9_-]+|UU[A-Za-z0-9_-]{20,})$/.test(
+    playlistId || "",
+  );
+}
+
+function cleanPlaylistCandidateTitle(title) {
+  return String(title || "")
+    .replace(/\s*-\s*YouTube\s*$/i, "")
+    .replace(/\s+playlist\s*$/i, "")
+    .trim();
 }
 
 function createVideoFromLockup(lockup) {

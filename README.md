@@ -12,11 +12,11 @@ Instead of relying entirely on YouTube's recommendation system, WatchTube surfac
 
 ### Custom Playlist Rows
 
-Adds unwatched videos from any YouTube playlist directly into the homepage feed. Watch Later is included by default, but you can add, disable, or delete playlist rows from the popup.
+Adds videos from any YouTube playlist directly into the homepage feed. Watch Later is included by default, and rows can be added, reordered, removed, or limited to unwatched videos from the homepage edit mode.
 
 ### Unwatched Subscription Discovery
 
-Surfaces random unwatched videos from channels you're subscribed to, making it easier to find content that may have been missed.
+Surfaces random videos from channels you're subscribed to, with an option to limit the row to unwatched videos.
 
 ### Improved Recommendation Variety
 
@@ -25,6 +25,10 @@ Reshuffles homepage recommendations to reduce repetition and encourage a more di
 ### Hide Shorts
 
 Optionally removes Shorts from the homepage for a cleaner browsing experience.
+
+### Extension Toggle
+
+Turn WatchTube on or off from the popup without changing row settings.
 
 ### Less Recommendation Fatigue
 

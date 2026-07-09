@@ -3,6 +3,10 @@ import * as parser from "./parser.js";
 import { hasWatchProgressMarker } from "../subscriptions/parser.js";
 
 const CHANNEL_AVATAR_PROMISES = new Map();
+const PLAYLIST_LIBRARY_URLS = [
+  "https://www.youtube.com/feed/you",
+  "https://www.youtube.com/feed/library",
+];
 
 export async function fetchPlaylist(playlist) {
   const playlistUrl = playlist?.url || buildPlaylistUrl(playlist?.playlistId);
@@ -22,14 +26,17 @@ export async function fetchPlaylist(playlist) {
   for (const item of contents) {
     const video = item?.playlistVideoRenderer || item;
 
-    if (!video?.videoId || hasWatchProgressMarker(video)) {
+    if (!video?.videoId) {
       continue;
     }
 
     const extractedVideo = parser.extractVideo(video);
 
     if (extractedVideo) {
-      videos.push(extractedVideo);
+      videos.push({
+        ...extractedVideo,
+        hasWatchProgress: hasWatchProgressMarker(video),
+      });
     }
   }
 
@@ -37,6 +44,40 @@ export async function fetchPlaylist(playlist) {
     title: parser.extractPlaylistTitle(json, html),
     videos,
   };
+}
+
+export async function fetchAvailablePlaylists() {
+  const candidates = [
+    createAvailablePlaylist(
+      constants.WATCH_LATER_PLAYLIST_ID,
+      constants.WATCH_LATER_TITLE,
+    ),
+    createAvailablePlaylist(
+      constants.LIKED_VIDEOS_PLAYLIST_ID,
+      constants.LIKED_VIDEOS_TITLE,
+    ),
+  ];
+
+  for (const url of PLAYLIST_LIBRARY_URLS) {
+    try {
+      const response = await fetch(url, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const html = await response.text();
+      const json = parser.extractInitialData(html);
+
+      candidates.push(...parser.findAvailablePlaylists(json, html));
+    } catch (error) {
+      console.warn("WatchTube: failed to load playlist candidates", error);
+    }
+  }
+
+  return dedupeAvailablePlaylists(candidates);
 }
 
 export async function getChannelAvatarUrl(channelUrl) {
@@ -74,4 +115,32 @@ async function fetchChannelAvatarUrl(channelUrl) {
 
 function buildPlaylistUrl(playlistId) {
   return `${constants.PLAYLIST_URL}?list=${encodeURIComponent(String(playlistId || ""))}`;
+}
+
+function createAvailablePlaylist(playlistId, title) {
+  return {
+    playlistId,
+    title,
+    url: buildPlaylistUrl(playlistId),
+  };
+}
+
+function dedupeAvailablePlaylists(playlists) {
+  const seenPlaylistIds = new Set();
+  const deduped = [];
+
+  for (const playlist of playlists) {
+    if (!playlist?.playlistId || seenPlaylistIds.has(playlist.playlistId)) {
+      continue;
+    }
+
+    seenPlaylistIds.add(playlist.playlistId);
+    deduped.push({
+      playlistId: playlist.playlistId,
+      title: playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
+      url: playlist.url || buildPlaylistUrl(playlist.playlistId),
+    });
+  }
+
+  return deduped;
 }
