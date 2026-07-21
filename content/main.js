@@ -934,7 +934,7 @@ function renderPlaylistPicker({
   const filteredPlaylists = availablePlaylists.filter((playlist) =>
     matchesPlaylistSearch(playlist, normalizedQuery),
   );
-  const showSubscriptionsButton = matchesPickerSearchText(
+  const showSubscriptionsButton = matchesPickerSearchTitle(
     "subscriptions",
     normalizedQuery,
   );
@@ -1411,11 +1411,25 @@ function matchesPlaylistSearch(playlist, query) {
   }
 
   return (
-    matchesPickerSearchText(playlist.title, query) ||
-    matchesPickerSearchText(playlist.playlistId, query)
+    matchesPickerSearchTitle(playlist.title, query) ||
+    matchesPickerSearchId(playlist.playlistId, query)
   );
 }
 
-function matchesPickerSearchText(value, query) {
-  return !query || String(value || "").toLocaleLowerCase().includes(query);
+function matchesPickerSearchTitle(value, query) {
+  if (!query) {
+    return true;
+  }
+
+  const normalizedTitle = String(value || "").toLocaleLowerCase();
+  const words = normalizedTitle.match(/[\p{L}\p{N}]+/gu) || [];
+  const queryWords = query.match(/[\p{L}\p{N}]+/gu) || [];
+
+  return queryWords.every((queryWord) =>
+    words.some((word) => word.startsWith(queryWord)),
+  );
+}
+
+function matchesPickerSearchId(value, query) {
+  return !query || String(value || "").toLocaleLowerCase().startsWith(query);
 }
