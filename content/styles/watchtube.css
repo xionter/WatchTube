@@ -498,6 +498,11 @@ html[dark] .watchtube-card-channel:hover {
   overflow-y: auto;
 }
 
+.watchtube-playlist-picker-search {
+  min-height: 38px;
+  margin-bottom: 6px;
+}
+
 .watchtube-playlist-picker-item {
   display: flex;
   align-items: center;
@@ -521,10 +526,32 @@ html[dark] .watchtube-card-channel:hover {
     sans-serif;
 }
 
+.watchtube-playlist-picker-item[data-state="enabled"] {
+  border-color: #2ba36a;
+  background: #f4fbf7;
+}
+
+.watchtube-playlist-picker-item[data-state="disabled"] {
+  border-color: #bdbdbd;
+  background: #fafafa;
+}
+
 .watchtube-playlist-picker-item:hover:not(:disabled),
 .watchtube-playlist-picker-item:focus-visible {
   border-color: #ff7a94;
   outline: 2px solid rgba(255, 0, 51, 0.14);
+}
+
+.watchtube-playlist-picker-item[data-state="enabled"]:hover:not(:disabled),
+.watchtube-playlist-picker-item[data-state="enabled"]:focus-visible {
+  border-color: #1d7f55;
+  outline: 2px solid rgba(43, 163, 106, 0.22);
+}
+
+.watchtube-playlist-picker-item[data-state="disabled"]:hover:not(:disabled),
+.watchtube-playlist-picker-item[data-state="disabled"]:focus-visible {
+  border-color: #606060;
+  outline: 2px solid rgba(96, 96, 96, 0.18);
 }
 
 .watchtube-playlist-picker-item:disabled {
@@ -639,9 +666,29 @@ html[dark] .watchtube-playlist-picker-item {
   color: #f1f1f1;
 }
 
+html[dark] .watchtube-playlist-picker-item[data-state="enabled"] {
+  border-color: #2ba36a;
+  background: #18251f;
+}
+
+html[dark] .watchtube-playlist-picker-item[data-state="disabled"] {
+  border-color: #555555;
+  background: #1d1d1d;
+}
+
 html[dark] .watchtube-playlist-picker-item:hover:not(:disabled),
 html[dark] .watchtube-playlist-picker-item:focus-visible {
   border-color: #ff7a94;
+}
+
+html[dark] .watchtube-playlist-picker-item[data-state="enabled"]:hover:not(:disabled),
+html[dark] .watchtube-playlist-picker-item[data-state="enabled"]:focus-visible {
+  border-color: #35bd7d;
+}
+
+html[dark] .watchtube-playlist-picker-item[data-state="disabled"]:hover:not(:disabled),
+html[dark] .watchtube-playlist-picker-item[data-state="disabled"]:focus-visible {
+  border-color: #8a8a8a;
 }
 
 html[dark] .watchtube-dialog-input,

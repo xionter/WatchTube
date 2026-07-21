@@ -198,6 +198,17 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
       return;
     }
 
+    if (!account.isSignedIn()) {
+      pendingGridRetry = clearPendingRefresh(pendingGridRetry);
+      lastAccountKey = account.getCurrentAccountKey();
+      editMode = false;
+      closeAddPlaylistDialog();
+      feedRowRenderer.resetRenderState();
+      clearManagedRows();
+
+      return;
+    }
+
     const grid = youtube.findHomeContents();
 
     if (!grid) {
@@ -705,6 +716,8 @@ function createAddPlaylistDialog() {
   const overlay = document.createElement("div");
   const dialog = document.createElement("form");
   const title = document.createElement("h2");
+  const pickerSearchTitle = document.createElement("div");
+  const pickerSearch = document.createElement("input");
   const pickerTitle = document.createElement("div");
   const pickerStatus = document.createElement("p");
   const pickerList = document.createElement("div");
@@ -727,8 +740,23 @@ function createAddPlaylistDialog() {
   title.className = "watchtube-dialog-title";
   title.textContent = "Add playlist row";
 
+  pickerSearchTitle.className = "watchtube-dialog-section-title";
+  pickerSearchTitle.textContent = "Search playlists";
+
+  pickerSearch.className =
+    "watchtube-dialog-input watchtube-playlist-picker-search";
+  pickerSearch.type = "search";
+  pickerSearch.placeholder = "Search playlists";
+  pickerSearch.autocomplete = "off";
+  pickerSearch.hidden = true;
+  pickerSearch.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+    }
+  });
+
   pickerTitle.className = "watchtube-dialog-section-title";
-  pickerTitle.textContent = "Rows";
+  pickerTitle.textContent = "Playlists";
 
   pickerStatus.className = "watchtube-dialog-status";
   pickerStatus.textContent = "Loading playlists...";
@@ -788,6 +816,8 @@ function createAddPlaylistDialog() {
   actions.append(cancelButton, addButton);
   dialog.append(
     title,
+    pickerSearchTitle,
+    pickerSearch,
     pickerTitle,
     pickerStatus,
     pickerList,
@@ -801,6 +831,7 @@ function createAddPlaylistDialog() {
   void loadPlaylistPicker({
     pickerList,
     pickerStatus,
+    pickerSearch,
     status,
     input,
     addButton,
@@ -843,6 +874,7 @@ async function addPlaylistFromDialog({
 async function loadPlaylistPicker({
   pickerList,
   pickerStatus,
+  pickerSearch,
   status,
   input,
   addButton,
@@ -853,49 +885,107 @@ async function loadPlaylistPicker({
       playlists.api.fetchAvailablePlaylists(),
       settingsStore.readSettings(),
     ]);
-    const addedPlaylistIds = new Set(
-      settings.playlists.map((playlist) => playlist.playlistId),
-    );
+    let currentSettings = settings;
 
-    pickerList.replaceChildren();
+    const renderPicker = () => {
+      renderPlaylistPicker({
+        availablePlaylists,
+        settings: currentSettings,
+        query: pickerSearch.value,
+        pickerList,
+        pickerStatus,
+        status,
+        input,
+        addButton,
+        cancelButton,
+        pickerSearch,
+        onSettingsChanged: (nextSettings) => {
+          currentSettings = nextSettings;
+          renderPicker();
+        },
+      });
+    };
 
-    if (!settings.showSubscriptions) {
-      pickerList.append(
-        createSubscriptionPickerButton({
-          status,
-          input,
-          addButton,
-          cancelButton,
-          pickerList,
-        }),
-      );
-    }
+    pickerSearch.hidden = !availablePlaylists.length;
+    pickerSearch.addEventListener("input", renderPicker);
 
-    if (!availablePlaylists.length && settings.showSubscriptions) {
-      pickerStatus.textContent = "No playlists found.";
-
-      return;
-    }
-
-    pickerStatus.hidden = true;
-
-    for (const playlist of availablePlaylists) {
-      pickerList.append(
-        createPlaylistPickerButton({
-          playlist,
-          added: addedPlaylistIds.has(playlist.playlistId),
-          status,
-          input,
-          addButton,
-          cancelButton,
-          pickerList,
-        }),
-      );
-    }
+    renderPicker();
   } catch (error) {
     console.warn("WatchTube: failed to load playlist picker", error);
+    pickerSearch.hidden = true;
     pickerStatus.textContent = "Could not load your playlists.";
   }
+}
+
+function renderPlaylistPicker({
+  availablePlaylists,
+  settings,
+  query,
+  pickerList,
+  pickerStatus,
+  status,
+  input,
+  addButton,
+  cancelButton,
+  pickerSearch,
+  onSettingsChanged,
+}) {
+  const normalizedQuery = normalizePickerSearchQuery(query);
+  const filteredPlaylists = availablePlaylists.filter((playlist) =>
+    matchesPlaylistSearch(playlist, normalizedQuery),
+  );
+  const showSubscriptionsButton = matchesPickerSearchText(
+    "subscriptions",
+    normalizedQuery,
+  );
+
+  pickerList.replaceChildren();
+
+  if (showSubscriptionsButton) {
+    pickerList.append(
+      createSubscriptionPickerButton({
+        status,
+        input,
+        addButton,
+        cancelButton,
+        pickerList,
+        pickerSearch,
+        enabled: settings.showSubscriptions,
+        onSettingsChanged,
+      }),
+    );
+  }
+
+  for (const playlist of filteredPlaylists) {
+    const storedPlaylist = settings.playlists.find(
+      (entry) => entry.playlistId === playlist.playlistId,
+    );
+
+    pickerList.append(
+      createPlaylistPickerButton({
+        playlist,
+        storedPlaylist,
+        status,
+        input,
+        addButton,
+        cancelButton,
+        pickerList,
+        pickerSearch,
+        onSettingsChanged,
+      }),
+    );
+  }
+
+  if (pickerList.children.length) {
+    pickerStatus.hidden = true;
+
+    return;
+  }
+
+  pickerStatus.hidden = false;
+  pickerStatus.textContent = normalizedQuery
+    ? "No matching playlists."
+    : "No playlists found.";
 }
 
 function createSubscriptionPickerButton({
@@ -904,6 +994,9 @@ function createSubscriptionPickerButton({
   addButton,
   cancelButton,
   pickerList,
+  pickerSearch,
+  enabled,
+  onSettingsChanged,
 }) {
   const button = document.createElement("button");
   const title = document.createElement("span");
@@ -911,21 +1004,25 @@ function createSubscriptionPickerButton({
 
   button.className = "watchtube-playlist-picker-item";
   button.type = "button";
-  button.dataset.added = "false";
+  button.dataset.state = enabled ? "enabled" : "disabled";
 
   title.className = "watchtube-playlist-picker-title";
   title.textContent = "Subscriptions";
 
   state.className = "watchtube-playlist-picker-state";
+  state.textContent = enabled ? "Enabled" : "Disabled";
 
   button.append(title, state);
   button.addEventListener("click", async () => {
-    await addSubscriptionsToSettings({
+    await toggleSubscriptionsInSettings({
+      enabled: !enabled,
       status,
       input,
       addButton,
       cancelButton,
       pickerList,
+      pickerSearch,
+      onSettingsChanged,
     });
   });
 
@@ -934,30 +1031,49 @@ function createSubscriptionPickerButton({
 
 function createPlaylistPickerButton({
   playlist,
-  added,
+  storedPlaylist,
   status,
   input,
   addButton,
   cancelButton,
   pickerList,
+  pickerSearch,
+  onSettingsChanged,
 }) {
   const button = document.createElement("button");
   const title = document.createElement("span");
   const state = document.createElement("span");
+  const isEnabled = Boolean(storedPlaylist?.enabled);
+  const isStored = Boolean(storedPlaylist);
 
   button.className = "watchtube-playlist-picker-item";
   button.type = "button";
-  button.disabled = added;
-  button.dataset.added = added ? "true" : "false";
+  button.dataset.state = isEnabled ? "enabled" : isStored ? "disabled" : "new";
 
   title.className = "watchtube-playlist-picker-title";
   title.textContent = playlist.title || constants.DEFAULT_PLAYLIST_TITLE;
 
   state.className = "watchtube-playlist-picker-state";
-  state.textContent = added ? "Added" : "";
+  state.textContent = isEnabled ? "Enabled" : isStored ? "Disabled" : "";
 
   button.append(title, state);
   button.addEventListener("click", async () => {
+    if (isStored) {
+      await togglePrefetchedPlaylistInSettings({
+        playlistId: playlist.playlistId,
+        enabled: !isEnabled,
+        status,
+        input,
+        addButton,
+        cancelButton,
+        pickerList,
+        pickerSearch,
+        onSettingsChanged,
+      });
+
+      return;
+    }
+
     await addPlaylistToSettings({
       playlistId: playlist.playlistId,
       title: playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
@@ -966,7 +1082,10 @@ function createPlaylistPickerButton({
       addButton,
       cancelButton,
       pickerList,
+      pickerSearch,
       preloadTitle: false,
+      closeOnSuccess: false,
+      onSettingsChanged,
     });
   });
 
@@ -981,22 +1100,49 @@ async function addPlaylistToSettings({
   addButton,
   cancelButton,
   pickerList,
+  pickerSearch,
   preloadTitle,
+  closeOnSuccess = true,
+  onSettingsChanged,
 }) {
   const settings = await settingsStore.readSettings();
+  const existingPlaylist = settings.playlists.find(
+    (playlist) => playlist.playlistId === playlistId,
+  );
 
-  if (
-    settings.playlists.some((playlist) => playlist.playlistId === playlistId)
-  ) {
-    setDialogStatus(status, "That playlist is already added.", "error");
+  if (existingPlaylist) {
+    if (!existingPlaylist.enabled) {
+      const nextSettings = await togglePrefetchedPlaylistInSettings({
+        playlistId,
+        enabled: true,
+        status,
+        input,
+        addButton,
+        cancelButton,
+        pickerList,
+        pickerSearch,
+        onSettingsChanged,
+      });
+      if (nextSettings && closeOnSuccess) {
+        closeAddPlaylistDialog();
+      }
+    } else {
+      setDialogStatus(status, "That playlist is already enabled.", "error");
+    }
 
     return;
   }
 
-  input.disabled = true;
-  addButton.disabled = true;
-  cancelButton.disabled = true;
-  setPickerButtonsDisabled(pickerList, true);
+  setDialogBusy(
+    {
+      input,
+      addButton,
+      cancelButton,
+      pickerList,
+      pickerSearch,
+    },
+    true,
+  );
   setDialogStatus(status, "Adding playlist...", "info");
 
   let playlistTitle = title || constants.DEFAULT_PLAYLIST_TITLE;
@@ -1016,14 +1162,20 @@ async function addPlaylistToSettings({
 
     if (
       latestSettings.playlists.some(
-        (playlist) => playlist.playlistId === playlistId,
+        (playlist) => playlist.playlistId === playlistId && playlist.enabled,
       )
     ) {
-      setDialogStatus(status, "That playlist is already added.", "error");
-      input.disabled = false;
-      addButton.disabled = false;
-      cancelButton.disabled = false;
-      setPickerButtonsDisabled(pickerList, false);
+      setDialogStatus(status, "That playlist is already enabled.", "error");
+      setDialogBusy(
+        {
+          input,
+          addButton,
+          cancelButton,
+          pickerList,
+          pickerSearch,
+        },
+        false,
+      );
 
       return;
     }
@@ -1033,59 +1185,192 @@ async function addPlaylistToSettings({
       title: playlistTitle,
       enabled: true,
     });
+    const existingLatestPlaylist = latestSettings.playlists.find(
+      (entry) => entry.playlistId === playlistId,
+    );
+    const playlistRowId = settingsStore.getPlaylistRowId(playlist.playlistId);
+    const nextPlaylists = existingLatestPlaylist
+      ? latestSettings.playlists.map((entry) =>
+          entry.playlistId === playlistId
+            ? {
+                ...entry,
+                title: playlistTitle,
+                enabled: true,
+              }
+            : entry,
+        )
+      : [...latestSettings.playlists, playlist];
+    const nextRowOrder = latestSettings.rowOrder.includes(playlistRowId)
+      ? latestSettings.rowOrder
+      : [...latestSettings.rowOrder, playlistRowId];
 
-    await settingsStore.writeSettings({
+    const nextSettings = await settingsStore.writeSettings({
       ...latestSettings,
-      playlists: [...latestSettings.playlists, playlist],
-      rowOrder: [
-        ...latestSettings.rowOrder,
-        settingsStore.getPlaylistRowId(playlist.playlistId),
-      ],
+      playlists: nextPlaylists,
+      rowOrder: nextRowOrder,
     });
 
-    closeAddPlaylistDialog();
+    if (closeOnSuccess) {
+      closeAddPlaylistDialog();
+    } else {
+      onSettingsChanged?.(nextSettings);
+      setDialogStatus(status, "Playlist enabled.", "info");
+      setDialogBusy(
+        {
+          input,
+          addButton,
+          cancelButton,
+          pickerList,
+          pickerSearch,
+        },
+        false,
+      );
+    }
   } catch (error) {
     console.error("WatchTube: failed to add playlist", error);
     setDialogStatus(status, "Playlist could not be added.", "error");
-    input.disabled = false;
-    addButton.disabled = false;
-    cancelButton.disabled = false;
-    setPickerButtonsDisabled(pickerList, false);
+    setDialogBusy(
+      {
+        input,
+        addButton,
+        cancelButton,
+        pickerList,
+        pickerSearch,
+      },
+      false,
+    );
   }
 }
 
-async function addSubscriptionsToSettings({
+async function toggleSubscriptionsInSettings({
+  enabled,
   status,
   input,
   addButton,
   cancelButton,
   pickerList,
+  pickerSearch,
+  onSettingsChanged,
 }) {
-  input.disabled = true;
-  addButton.disabled = true;
-  cancelButton.disabled = true;
-  setPickerButtonsDisabled(pickerList, true);
-  setDialogStatus(status, "Adding subscriptions...", "info");
+  setDialogBusy(
+    {
+      input,
+      addButton,
+      cancelButton,
+      pickerList,
+      pickerSearch,
+    },
+    true,
+  );
+  setDialogStatus(
+    status,
+    enabled ? "Enabling subscriptions..." : "Disabling subscriptions...",
+    "info",
+  );
 
   try {
     const settings = await settingsStore.readSettings();
 
-    await settingsStore.writeSettings({
+    const nextSettings = await settingsStore.writeSettings({
       ...settings,
-      showSubscriptions: true,
+      showSubscriptions: enabled,
       rowOrder: settings.rowOrder.includes(constants.SUBSCRIPTIONS_ROW_ID)
         ? settings.rowOrder
         : [...settings.rowOrder, constants.SUBSCRIPTIONS_ROW_ID],
     });
 
-    closeAddPlaylistDialog();
+    onSettingsChanged?.(nextSettings);
+    setDialogStatus(
+      status,
+      enabled ? "Subscriptions enabled." : "Subscriptions disabled.",
+      "info",
+    );
   } catch (error) {
-    console.error("WatchTube: failed to add subscriptions", error);
-    setDialogStatus(status, "Subscriptions could not be added.", "error");
-    input.disabled = false;
-    addButton.disabled = false;
-    cancelButton.disabled = false;
-    setPickerButtonsDisabled(pickerList, false);
+    console.error("WatchTube: failed to toggle subscriptions", error);
+    setDialogStatus(status, "Subscriptions could not be updated.", "error");
+  } finally {
+    setDialogBusy(
+      {
+        input,
+        addButton,
+        cancelButton,
+        pickerList,
+        pickerSearch,
+      },
+      false,
+    );
+  }
+}
+
+async function togglePrefetchedPlaylistInSettings({
+  playlistId,
+  enabled,
+  status,
+  input,
+  addButton,
+  cancelButton,
+  pickerList,
+  pickerSearch,
+  onSettingsChanged,
+}) {
+  setDialogBusy(
+    {
+      input,
+      addButton,
+      cancelButton,
+      pickerList,
+      pickerSearch,
+    },
+    true,
+  );
+  setDialogStatus(
+    status,
+    enabled ? "Enabling playlist..." : "Disabling playlist...",
+    "info",
+  );
+
+  try {
+    const settings = await settingsStore.readSettings();
+    const playlistRowId = settingsStore.getPlaylistRowId(playlistId);
+    const nextSettings = await settingsStore.writeSettings({
+      ...settings,
+      playlists: settings.playlists.map((playlist) =>
+        playlist.playlistId === playlistId
+          ? {
+              ...playlist,
+              enabled,
+            }
+          : playlist,
+      ),
+      rowOrder: settings.rowOrder.includes(playlistRowId)
+        ? settings.rowOrder
+        : [...settings.rowOrder, playlistRowId],
+    });
+
+    onSettingsChanged?.(nextSettings);
+    setDialogStatus(
+      status,
+      enabled ? "Playlist enabled." : "Playlist disabled.",
+      "info",
+    );
+
+    return nextSettings;
+  } catch (error) {
+    console.error("WatchTube: failed to toggle playlist", error);
+    setDialogStatus(status, "Playlist could not be updated.", "error");
+
+    return null;
+  } finally {
+    setDialogBusy(
+      {
+        input,
+        addButton,
+        cancelButton,
+        pickerList,
+        pickerSearch,
+      },
+      false,
+    );
   }
 }
 
@@ -1095,10 +1380,42 @@ function setDialogStatus(status, text, tone) {
   status.textContent = text;
 }
 
+function setDialogBusy(
+  { input, addButton, cancelButton, pickerList, pickerSearch },
+  disabled,
+) {
+  input.disabled = disabled;
+  addButton.disabled = disabled;
+  cancelButton.disabled = disabled;
+  if (pickerSearch) {
+    pickerSearch.disabled = disabled;
+  }
+  setPickerButtonsDisabled(pickerList, disabled);
+}
+
 function setPickerButtonsDisabled(pickerList, disabled) {
   pickerList
     ?.querySelectorAll(".watchtube-playlist-picker-item")
     .forEach((button) => {
-      button.disabled = disabled || button.dataset.added === "true";
+      button.disabled = disabled;
     });
+}
+
+function normalizePickerSearchQuery(value) {
+  return String(value || "").trim().toLocaleLowerCase();
+}
+
+function matchesPlaylistSearch(playlist, query) {
+  if (!query) {
+    return true;
+  }
+
+  return (
+    matchesPickerSearchText(playlist.title, query) ||
+    matchesPickerSearchText(playlist.playlistId, query)
+  );
+}
+
+function matchesPickerSearchText(value, query) {
+  return !query || String(value || "").toLocaleLowerCase().includes(query);
 }
