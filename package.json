@@ -1,0 +1,13 @@
+{
+  "name": "watchtube",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "check": "node --check content/main.js"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}
