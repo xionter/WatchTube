@@ -19,8 +19,12 @@ describe("playlist picker search", () => {
   });
 
   it("matches every query word against a title word prefix", () => {
-    expect(matchesPickerSearchTitle("Linear Algebra Basics", "lin alg")).toBe(true);
-    expect(matchesPickerSearchTitle("Linear Algebra Basics", "lin geo")).toBe(false);
+    expect(matchesPickerSearchTitle("Linear Algebra Basics", "lin alg")).toBe(
+      true,
+    );
+    expect(matchesPickerSearchTitle("Linear Algebra Basics", "lin geo")).toBe(
+      false,
+    );
   });
 
   it("matches playlist ids by prefix", () => {
@@ -29,15 +33,15 @@ describe("playlist picker search", () => {
   });
 
   it("matches playlists by title or id", () => {
-    expect(matchesPlaylistSearch({ title: "Music", playlistId: "PL1" }, "mu")).toBe(
-      true,
-    );
-    expect(matchesPlaylistSearch({ title: "Music", playlistId: "PL1" }, "pl")).toBe(
-      true,
-    );
-    expect(matchesPlaylistSearch({ title: "Music", playlistId: "PL1" }, "sic")).toBe(
-      false,
-    );
+    expect(
+      matchesPlaylistSearch({ title: "Music", playlistId: "PL1" }, "mu"),
+    ).toBe(true);
+    expect(
+      matchesPlaylistSearch({ title: "Music", playlistId: "PL1" }, "pl"),
+    ).toBe(true);
+    expect(
+      matchesPlaylistSearch({ title: "Music", playlistId: "PL1" }, "sic"),
+    ).toBe(false);
   });
 
   it("applies the same prefix behavior to subscriptions", () => {

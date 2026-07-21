@@ -43,7 +43,10 @@ describe("feed row model", () => {
       playlistRows: [
         {
           playlist: playlistA,
-          data: { title: "Fetched Alpha", videos: [video("a1"), video("a2", true)] },
+          data: {
+            title: "Fetched Alpha",
+            videos: [video("a1"), video("a2", true)],
+          },
         },
         {
           playlist: playlistB,
@@ -96,10 +99,7 @@ describe("feed row model", () => {
   it("returns only enabled active row ids", () => {
     expect(
       getActiveRowIds({
-        playlists: [
-          playlistA,
-          { ...playlistB, enabled: false },
-        ],
+        playlists: [playlistA, { ...playlistB, enabled: false }],
         showSubscriptions: true,
         rowOrder: [
           settingsStore.getPlaylistRowId("PLB"),

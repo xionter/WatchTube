@@ -114,7 +114,8 @@ function createAddPlaylistDialog() {
     }
   });
 
-  addButton.className = "watchtube-dialog-button watchtube-dialog-button-primary";
+  addButton.className =
+    "watchtube-dialog-button watchtube-dialog-button-primary";
   addButton.type = "submit";
   addButton.textContent = "Add";
 

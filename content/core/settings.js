@@ -123,7 +123,9 @@ export function getPlaylistIdFromRowId(rowId) {
 
 function normalizePlaylists(settings) {
   if (Array.isArray(settings.playlists)) {
-    return dedupePlaylists(settings.playlists.map(normalizePlaylist).filter(Boolean));
+    return dedupePlaylists(
+      settings.playlists.map(normalizePlaylist).filter(Boolean),
+    );
   }
 
   return [
@@ -160,7 +162,10 @@ function normalizeRowOrder(settings, playlists) {
     for (const rowId of settings.rowOrder) {
       const normalizedRowId = String(rowId || "").trim();
 
-      if (!validRowIds.has(normalizedRowId) || rowOrder.includes(normalizedRowId)) {
+      if (
+        !validRowIds.has(normalizedRowId) ||
+        rowOrder.includes(normalizedRowId)
+      ) {
         continue;
       }
 

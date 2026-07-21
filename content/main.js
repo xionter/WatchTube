@@ -239,7 +239,9 @@ async function refreshPage({ forceDataRefresh = false } = {}) {
     }
 
     lastAccountKey = currentAccountKey;
-    const enabledPlaylists = settings.playlists.filter((playlist) => playlist.enabled);
+    const enabledPlaylists = settings.playlists.filter(
+      (playlist) => playlist.enabled,
+    );
 
     const [playlistRows, subscriptionVideos] = await Promise.all([
       Promise.all(
@@ -380,7 +382,9 @@ function clearPendingRefresh(timeoutId) {
 }
 
 async function activateRequestedEditMode() {
-  const stored = await chrome.storage.local.get(constants.EDIT_MODE_REQUEST_KEY);
+  const stored = await chrome.storage.local.get(
+    constants.EDIT_MODE_REQUEST_KEY,
+  );
   const request = stored[constants.EDIT_MODE_REQUEST_KEY];
   const requestId = String(request?.id || "");
   const requestedAt = Number(request?.requestedAt || 0);

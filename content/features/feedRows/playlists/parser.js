@@ -33,13 +33,21 @@ export function extractInitialData(html) {
 export function extractPlaylistTitle(json, html = "") {
   const candidateTitle =
     [
-      utils.getValue(json, ["metadata", "playlistMetadataRenderer", "title"], ""),
+      utils.getValue(
+        json,
+        ["metadata", "playlistMetadataRenderer", "title"],
+        "",
+      ),
       utils.getValue(
         json,
         ["header", "playlistHeaderRenderer", "title", "simpleText"],
         "",
       ),
-      utils.getValue(json, ["header", "playlistHeaderRenderer", "title", "runs", 0, "text"], ""),
+      utils.getValue(
+        json,
+        ["header", "playlistHeaderRenderer", "title", "runs", 0, "text"],
+        "",
+      ),
       utils.getValue(
         json,
         [
@@ -55,7 +63,11 @@ export function extractPlaylistTitle(json, html = "") {
         ],
         "",
       ),
-      utils.getValue(json, ["microformat", "microformatDataRenderer", "title"], ""),
+      utils.getValue(
+        json,
+        ["microformat", "microformatDataRenderer", "title"],
+        "",
+      ),
     ].find((title) => String(title || "").trim()) || "";
 
   if (candidateTitle) {
@@ -192,10 +204,7 @@ function collectLockupVideos(value, results) {
     return;
   }
 
-  if (
-    value.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" &&
-    value.contentId
-  ) {
+  if (value.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" && value.contentId) {
     results.push(createVideoFromLockup(value));
 
     return;
@@ -339,7 +348,10 @@ function extractText(value) {
   }
 
   if (Array.isArray(value.runs)) {
-    return value.runs.map((run) => run?.text || "").join("").trim();
+    return value.runs
+      .map((run) => run?.text || "")
+      .join("")
+      .trim();
   }
 
   if (typeof value.text === "string") {
@@ -570,7 +582,9 @@ function extractTitleFromHtml(html) {
 
   if (typeof DOMParser !== "undefined") {
     const document = new DOMParser().parseFromString(html, "text/html");
-    const title = cleanPageTitle(document.querySelector("title")?.textContent || "");
+    const title = cleanPageTitle(
+      document.querySelector("title")?.textContent || "",
+    );
 
     if (title) {
       return title;
@@ -579,7 +593,9 @@ function extractTitleFromHtml(html) {
 
   const titleMatch = html.match(/<title>(.*?)<\/title>/i);
 
-  return cleanPageTitle(titleMatch?.[1] || "") || constants.DEFAULT_PLAYLIST_TITLE;
+  return (
+    cleanPageTitle(titleMatch?.[1] || "") || constants.DEFAULT_PLAYLIST_TITLE
+  );
 }
 
 function cleanPageTitle(title) {

@@ -681,13 +681,16 @@ html[dark] .watchtube-playlist-picker-item:focus-visible {
   border-color: #ff7a94;
 }
 
-html[dark] .watchtube-playlist-picker-item[data-state="enabled"]:hover:not(:disabled),
+html[dark]
+  .watchtube-playlist-picker-item[data-state="enabled"]:hover:not(:disabled),
 html[dark] .watchtube-playlist-picker-item[data-state="enabled"]:focus-visible {
   border-color: #35bd7d;
 }
 
-html[dark] .watchtube-playlist-picker-item[data-state="disabled"]:hover:not(:disabled),
-html[dark] .watchtube-playlist-picker-item[data-state="disabled"]:focus-visible {
+html[dark]
+  .watchtube-playlist-picker-item[data-state="disabled"]:hover:not(:disabled),
+html[dark]
+  .watchtube-playlist-picker-item[data-state="disabled"]:focus-visible {
   border-color: #8a8a8a;
 }
 

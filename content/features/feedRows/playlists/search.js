@@ -1,5 +1,7 @@
 export function normalizePickerSearchQuery(value) {
-  return String(value || "").trim().toLocaleLowerCase();
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase();
 }
 
 export function matchesPlaylistSearch(playlist, query) {
@@ -28,7 +30,12 @@ export function matchesPickerSearchTitle(value, query) {
 }
 
 export function matchesPickerSearchId(value, query) {
-  return !query || String(value || "").toLocaleLowerCase().startsWith(query);
+  return (
+    !query ||
+    String(value || "")
+      .toLocaleLowerCase()
+      .startsWith(query)
+  );
 }
 
 export function shouldShowSubscriptionsInPicker(query) {

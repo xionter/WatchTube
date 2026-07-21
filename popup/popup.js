@@ -26,7 +26,6 @@ async function main() {
   for (const control of Object.values(elements.controls)) {
     control.addEventListener("change", handleSettingsChange);
   }
-
 }
 
 function assertUi() {

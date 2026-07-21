@@ -1,6 +1,6 @@
 # WatchTube
 
-[Chrome](https://chromewebstore.google.com/detail/watchtube/pigegkcnemdgpcmfgmaajohcbekknfdg)      [Firefox](https://addons.mozilla.org/en-US/firefox/addon/watchtube/)
+[Chrome](https://chromewebstore.google.com/detail/watchtube/pigegkcnemdgpcmfgmaajohcbekknfdg) [Firefox](https://addons.mozilla.org/en-US/firefox/addon/watchtube/)
 
 **A better YouTube homepage.**
 
@@ -38,9 +38,9 @@ Balances YouTube's recommendations with content you've already chosen to save in
 
 WatchTube runs entirely in your browser.
 
-* No analytics
-* No tracking
-* No data collection
-* No external servers
+- No analytics
+- No tracking
+- No data collection
+- No external servers
 
 All processing is performed locally on your device.

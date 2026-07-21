@@ -49,7 +49,11 @@ export async function getCached({
   } catch (error) {
     console.warn("WatchTube: failed to refresh cached feed data", error);
 
-    if (isCacheRecord && cache.version === version && Object.hasOwn(cache, "items")) {
+    if (
+      isCacheRecord &&
+      cache.version === version &&
+      Object.hasOwn(cache, "items")
+    ) {
       return cache.items;
     }
 

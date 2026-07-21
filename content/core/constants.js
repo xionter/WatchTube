@@ -30,7 +30,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
   subscriptionsUnwatchedOnly: true,
   hideShorts: false,
   playlists: [DEFAULT_PLAYLIST],
-  rowOrder: [`${PLAYLIST_ROW_PREFIX}${WATCH_LATER_PLAYLIST_ID}`, SUBSCRIPTIONS_ROW_ID],
+  rowOrder: [
+    `${PLAYLIST_ROW_PREFIX}${WATCH_LATER_PLAYLIST_ID}`,
+    SUBSCRIPTIONS_ROW_ID,
+  ],
 });
 
 export const CACHE_VERSION = 7;
