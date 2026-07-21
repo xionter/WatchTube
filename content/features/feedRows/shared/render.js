@@ -144,13 +144,13 @@ function shuffleFeedRow(
   grid,
   { rowId, title, videos, loadAvatar, controls, controlsSignature },
 ) {
-  const mounted = ensureMountedSection(grid, rowId);
+  const section = findSection(rowId);
 
-  if (!mounted) {
+  if (!section || section.parentElement !== grid) {
     return;
   }
 
-  replaceFeedRowContents(mounted.section, {
+  replaceFeedRowContents(section, {
     rowId,
     title,
     videos,
@@ -335,7 +335,6 @@ function createShuffleButton(rowId) {
     shuffleLocks.add(rowId);
 
     button.disabled = true;
-    button.style.opacity = "0.7";
 
     try {
       const state = rowStates.get(rowId);
@@ -357,7 +356,6 @@ function createShuffleButton(rowId) {
         shuffleLocks.delete(rowId);
 
         button.disabled = false;
-        button.style.opacity = "1";
       }, 250);
     }
   });

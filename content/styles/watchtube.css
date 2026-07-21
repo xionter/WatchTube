@@ -152,8 +152,7 @@
 
   transition:
     background 160ms ease,
-    transform 160ms ease,
-    opacity 160ms ease;
+    transform 160ms ease;
 }
 
 .watchtube-shuffle:hover {
@@ -180,20 +179,12 @@
   display: flex;
   gap: 6px;
 
-  opacity: 0;
-  pointer-events: none;
-
-  transition:
-    opacity 160ms ease,
-    transform 160ms ease;
-  transform: translateY(-2px);
+  pointer-events: auto;
 }
 
 .watchtube-section:hover .watchtube-row-controls,
 .watchtube-section:focus-within .watchtube-row-controls {
-  opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
 }
 
 .watchtube-row-control {
@@ -206,7 +197,7 @@
   border: none;
   border-radius: 50%;
 
-  background: rgba(15, 15, 15, 0.88);
+  background: #606060;
   color: #ffffff;
 
   cursor: pointer;
@@ -216,10 +207,7 @@
     Arial,
     sans-serif;
 
-  transition:
-    background 160ms ease,
-    opacity 160ms ease,
-    transform 160ms ease;
+  transition: none;
 }
 
 .watchtube-row-control-wide {
@@ -233,26 +221,29 @@
 }
 
 .watchtube-row-control-active {
-  background: rgba(255, 0, 51, 0.92);
+  background: #ff0033;
 }
 
-.watchtube-row-control:hover {
-  background: #0f0f0f;
-  transform: translateY(-1px);
+.watchtube-row-control:hover:not(:disabled) {
+  background: #757575;
+}
+
+.watchtube-row-control-active:hover:not(:disabled) {
+  background: #ff3355;
 }
 
 .watchtube-row-control:disabled {
-  opacity: 0.38;
+  background: #8a8a8a;
+  color: #ffffff;
   cursor: default;
-  transform: none;
 }
 
 .watchtube-row-control-danger {
-  background: rgba(255, 0, 51, 0.92);
+  background: #ff0033;
 }
 
 .watchtube-row-control-danger:hover {
-  background: #ff0033;
+  background: #ff3355;
 }
 
 .watchtube-section {
@@ -290,8 +281,8 @@
   border: none;
   border-radius: 999px;
 
-  background: rgba(15, 15, 15, 0.08);
-  color: #0f0f0f;
+  background: #ff0033;
+  color: #ffffff;
 
   cursor: pointer;
 
@@ -302,13 +293,12 @@
 
   transition:
     background 160ms ease,
-    color 160ms ease,
     transform 160ms ease;
 }
 
 .watchtube-edit-mode-button:hover,
 .watchtube-edit-mode-button:focus-visible {
-  background: rgba(15, 15, 15, 0.14);
+  background: #ff3355;
   outline: none;
   transform: translateY(-1px);
 }
@@ -332,11 +322,11 @@
   min-height: 54px;
   width: 100%;
 
-  border: 1px dashed #d0d0d0;
+  border: 1px solid #d0d0d0;
   border-radius: 12px;
 
-  background: transparent;
-  color: #606060;
+  background: #f1f1f1;
+  color: #0f0f0f;
 
   cursor: pointer;
 
@@ -345,17 +335,13 @@
     Arial,
     sans-serif;
 
-  transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    color 160ms ease;
+  transition: none;
 }
 
 .watchtube-add-playlist:hover,
 .watchtube-add-playlist:focus-visible {
-  border-color: #ff0033;
-  background: rgba(255, 0, 51, 0.06);
-  color: #0f0f0f;
+  border-color: #bdbdbd;
+  background: #e5e5e5;
   outline: none;
 }
 
@@ -393,50 +379,44 @@ html[dark] .watchtube-card {
 }
 
 html[dark] .watchtube-row-control {
-  background: rgba(255, 255, 255, 0.16);
+  background: #606060;
 }
 
-html[dark] .watchtube-row-control:hover {
-  background: rgba(255, 255, 255, 0.24);
+html[dark] .watchtube-row-control:hover:not(:disabled) {
+  background: #757575;
 }
 
 html[dark] .watchtube-row-control-danger {
-  background: rgba(255, 0, 51, 0.9);
-}
-
-html[dark] .watchtube-row-control-active {
-  background: rgba(255, 0, 51, 0.9);
-}
-
-html[dark] .watchtube-row-control-danger:hover {
   background: #ff0033;
 }
 
+html[dark] .watchtube-row-control-active {
+  background: #ff0033;
+}
+
+html[dark] .watchtube-row-control-active:hover:not(:disabled) {
+  background: #ff3355;
+}
+
+html[dark] .watchtube-row-control-danger:hover {
+  background: #ff3355;
+}
+
 html[dark] .watchtube-edit-mode-button {
-  background: rgba(255, 255, 255, 0.12);
-  color: #f1f1f1;
-}
-
-html[dark] .watchtube-edit-mode-button:hover,
-html[dark] .watchtube-edit-mode-button:focus-visible {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-html[dark] .watchtube-edit-mode-button-active {
   background: #ff0033;
   color: #ffffff;
 }
 
 html[dark] .watchtube-add-playlist {
   border-color: #3f3f3f;
-  color: #aaaaaa;
+  background: #272727;
+  color: #f1f1f1;
 }
 
 html[dark] .watchtube-add-playlist:hover,
 html[dark] .watchtube-add-playlist:focus-visible {
-  border-color: #ff3355;
-  background: rgba(255, 0, 51, 0.12);
-  color: #f1f1f1;
+  border-color: #555555;
+  background: #333333;
 }
 
 html[dark] .watchtube-avatar {
