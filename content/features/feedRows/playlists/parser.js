@@ -78,6 +78,94 @@ export function extractPlaylistTitle(json, html = "") {
 }
 
 export function findPlaylistVideos(json) {
+  const contents = findPlaylistContents(json);
+
+  if (contents.length) {
+    return contents.filter(isVideoItem);
+  }
+
+  const playlistVideos = [];
+  collectPlaylistVideos(json, playlistVideos);
+
+  if (playlistVideos.length) {
+    return playlistVideos;
+  }
+
+  const lockupVideos = [];
+  collectLockupVideos(json, lockupVideos);
+
+  return lockupVideos;
+}
+
+export function findPlaylistContinuation(json) {
+  const contents = findPlaylistContents(json);
+  const continuationFromContents = findContinuationToken(contents);
+
+  return (
+    continuationFromContents ||
+    findContinuationTokenInContinuationContainers(json) ||
+    findContinuationToken(json)
+  );
+}
+
+export function findContinuationVideos(json) {
+  const contents = findContinuationContents(json);
+
+  if (contents.length) {
+    return contents.filter(isVideoItem);
+  }
+
+  return findPlaylistVideos(json);
+}
+
+export function hasPlaylistContinuationContainer(json) {
+  return hasContinuationContainer(json);
+}
+
+export function extractYtConfig(html) {
+  const marker = "ytcfg.set(";
+  const config = {};
+  let markerIndex = html.indexOf(marker);
+
+  while (markerIndex !== -1) {
+    const objectStart = html.indexOf("{", markerIndex + marker.length);
+
+    if (objectStart === -1) {
+      break;
+    }
+
+    const jsonText = extractJsonObjectText(html, objectStart);
+
+    if (jsonText) {
+      try {
+        Object.assign(config, JSON.parse(jsonText));
+      } catch {}
+    }
+
+    markerIndex = html.indexOf(marker, objectStart + Math.max(jsonText.length, 1));
+  }
+
+  return config;
+}
+
+export function extractInnertubeApiKey(config) {
+  return String(config?.INNERTUBE_API_KEY || "");
+}
+
+export function extractInnertubeContext(config) {
+  if (config?.INNERTUBE_CONTEXT) {
+    return config.INNERTUBE_CONTEXT;
+  }
+
+  return {
+    client: {
+      clientName: config?.INNERTUBE_CLIENT_NAME || "WEB",
+      clientVersion: config?.INNERTUBE_CLIENT_VERSION || "2.20200101.00.00",
+    },
+  };
+}
+
+function findPlaylistContents(json) {
   const tabs =
     utils.getValue(
       json,
@@ -105,21 +193,15 @@ export function findPlaylistVideos(json) {
       [],
     ) || [];
 
-  if (contents.length) {
-    return contents;
-  }
+  return contents;
+}
 
-  const playlistVideos = [];
-  collectPlaylistVideos(json, playlistVideos);
+function findContinuationContents(json) {
+  const continuationContents = [];
 
-  if (playlistVideos.length) {
-    return playlistVideos;
-  }
+  collectContinuationContents(json, continuationContents);
 
-  const lockupVideos = [];
-  collectLockupVideos(json, lockupVideos);
-
-  return lockupVideos;
+  return continuationContents;
 }
 
 export function findAvailablePlaylists(json, html = "") {
@@ -197,6 +279,203 @@ function collectPlaylistVideos(value, results) {
   for (const child of Object.values(value)) {
     collectPlaylistVideos(child, results);
   }
+}
+
+function collectContinuationContents(value, results) {
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectContinuationContents(item, results);
+    }
+
+    return;
+  }
+
+  const continuationContainer =
+    value.playlistVideoListContinuation ||
+    value.appendContinuationItemsAction ||
+    value.reloadContinuationItemsCommand;
+
+  if (continuationContainer) {
+    results.push(
+      ...getContinuationContentItems(continuationContainer),
+    );
+  }
+
+  for (const child of Object.values(value)) {
+    collectContinuationContents(child, results);
+  }
+}
+
+function getContinuationContentItems(value) {
+  return [
+    ...(Array.isArray(value.contents) ? value.contents : []),
+    ...(Array.isArray(value.continuationItems) ? value.continuationItems : []),
+  ];
+}
+
+function findContinuationTokenInContinuationContainers(value) {
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findContinuationTokenInContinuationContainers(item);
+
+      if (found) {
+        return found;
+      }
+    }
+
+    return "";
+  }
+
+  const continuationContainer =
+    value.playlistVideoListContinuation ||
+    value.appendContinuationItemsAction ||
+    value.reloadContinuationItemsCommand;
+
+  if (continuationContainer) {
+    const found =
+      findContinuationToken(getContinuationContentItems(continuationContainer)) ||
+      findContinuationToken(continuationContainer.continuations);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  for (const child of Object.values(value)) {
+    const found = findContinuationTokenInContinuationContainers(child);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return "";
+}
+
+function isVideoItem(item) {
+  const video = item?.playlistVideoRenderer || item;
+
+  return Boolean(
+    video?.videoId ||
+      (video?.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" && video.contentId),
+  );
+}
+
+function hasContinuationContainer(value) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => hasContinuationContainer(item));
+  }
+
+  if (
+    value.playlistVideoListContinuation ||
+    value.appendContinuationItemsAction ||
+    value.reloadContinuationItemsCommand
+  ) {
+    return true;
+  }
+
+  return Object.values(value).some((child) => hasContinuationContainer(child));
+}
+
+function findContinuationToken(value) {
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+
+  const continuationCommand =
+    value.continuationCommand ||
+    value.continuationEndpoint?.continuationCommand ||
+    value.nextContinuationData ||
+    value.button?.buttonRenderer?.command?.continuationCommand ||
+    value.command?.continuationCommand ||
+    value.endpoint?.continuationCommand;
+
+  const token =
+    continuationCommand?.token ||
+    continuationCommand?.continuation ||
+    value.continuation;
+
+  if (token) {
+    return token;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findContinuationToken(item);
+
+      if (found) {
+        return found;
+      }
+    }
+
+    return "";
+  }
+
+  for (const child of Object.values(value)) {
+    const found = findContinuationToken(child);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return "";
+}
+
+function extractJsonObjectText(source, objectStart) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = objectStart; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === "{") {
+      depth += 1;
+      continue;
+    }
+
+    if (char !== "}") {
+      continue;
+    }
+
+    depth -= 1;
+
+    if (depth === 0) {
+      return source.slice(objectStart, index + 1);
+    }
+  }
+
+  return "";
 }
 
 function collectLockupVideos(value, results) {

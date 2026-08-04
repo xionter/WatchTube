@@ -36,7 +36,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
   ],
 });
 
-export const CACHE_VERSION = 7;
+export const CACHE_VERSION = 9;
 export const CACHE_TTL_MS = 30 * 60 * 1000;
 export const SUBSCRIPTIONS_CACHE_TTL_MS = 30 * 1000;
 export const MAX_FIRST_ROW_VIDEOS = 3;
+export const MAX_PLAYLIST_CACHE_VIDEOS = 300;
+export const PLAYLIST_CONTINUATION_CONCURRENCY = 1;
+export const PLAYLIST_CONTINUATION_RETRY_DELAY_MS = 5 * 60 * 1000;

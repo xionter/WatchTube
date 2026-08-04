@@ -7,8 +7,13 @@ const PLAYLIST_LIBRARY_URLS = [
   "https://www.youtube.com/feed/you",
   "https://www.youtube.com/feed/library",
 ];
+const INNERTUBE_BROWSE_URL = "https://www.youtube.com/youtubei/v1/browse";
 
 export async function fetchPlaylist(playlist) {
+  return fetchPlaylistInitial(playlist);
+}
+
+export async function fetchPlaylistInitial(playlist) {
   const playlistUrl = playlist?.url || buildPlaylistUrl(playlist?.playlistId);
   const response = await fetch(playlistUrl, {
     credentials: "include",
@@ -20,29 +25,97 @@ export async function fetchPlaylist(playlist) {
 
   const html = await response.text();
   const json = parser.extractInitialData(html);
-  const contents = parser.findPlaylistVideos(json);
-  const videos = [];
-
-  for (const item of contents) {
-    const video = item?.playlistVideoRenderer || item;
-
-    if (!video?.videoId) {
-      continue;
-    }
-
-    const extractedVideo = parser.extractVideo(video);
-
-    if (extractedVideo) {
-      videos.push({
-        ...extractedVideo,
-        hasWatchProgress: hasWatchProgressMarker(video),
-      });
-    }
-  }
+  const config = parser.extractYtConfig(html);
+  const continuation = parser.findPlaylistContinuation(json);
 
   return {
     title: parser.extractPlaylistTitle(json, html),
+    videos: extractVideos(parser.findPlaylistVideos(json)),
+    continuation,
+    context: parser.extractInnertubeContext(config),
+    apiKey: parser.extractInnertubeApiKey(config),
+    isComplete: !continuation,
+  };
+}
+
+export async function fetchPlaylistContinuation({ continuation, context, apiKey }) {
+  if (!continuation) {
+    return {
+      videos: [],
+      continuation: "",
+      isComplete: true,
+    };
+  }
+
+  if (!apiKey) {
+    throw new Error("Playlist continuation request is missing an API key");
+  }
+
+  const url = new URL(INNERTUBE_BROWSE_URL);
+
+  url.searchParams.set("prettyPrint", "false");
+
+  if (apiKey) {
+    url.searchParams.set("key", apiKey);
+  }
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      context,
+      continuation,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Playlist continuation request failed with status ${response.status}`,
+    );
+  }
+
+  const json = await response.json();
+  const nextContinuation = parser.findPlaylistContinuation(json);
+  const videos = extractVideos(parser.findContinuationVideos(json));
+
+  if (
+    !videos.length &&
+    !nextContinuation &&
+    !parser.hasPlaylistContinuationContainer(json)
+  ) {
+    throw new Error(
+      "Playlist continuation response did not contain playlist items",
+    );
+  }
+
+  return {
     videos,
+    continuation: nextContinuation,
+    context,
+    apiKey,
+    isComplete: !nextContinuation,
+  };
+}
+
+export function mergePlaylistData(baseData, continuationData, { maxVideos }) {
+  const videos = dedupeVideos([
+    ...(Array.isArray(baseData?.videos) ? baseData.videos : []),
+    ...(Array.isArray(continuationData?.videos) ? continuationData.videos : []),
+  ]).slice(0, maxVideos);
+  const hitLimit = videos.length >= maxVideos;
+  const continuation = hitLimit ? "" : continuationData?.continuation || "";
+
+  return {
+    ...baseData,
+    videos,
+    continuation,
+    context: continuationData?.context || baseData?.context || null,
+    apiKey: continuationData?.apiKey || baseData?.apiKey || "",
+    isComplete: hitLimit || !continuation,
+    expandedAt: Date.now(),
   };
 }
 
@@ -78,6 +151,45 @@ export async function fetchAvailablePlaylists() {
   }
 
   return dedupeAvailablePlaylists(candidates);
+}
+
+function extractVideos(contents) {
+  const videos = [];
+
+  for (const item of contents) {
+    const video = item?.playlistVideoRenderer || item;
+
+    if (!video?.videoId) {
+      continue;
+    }
+
+    const extractedVideo = parser.extractVideo(video);
+
+    if (extractedVideo) {
+      videos.push({
+        ...extractedVideo,
+        hasWatchProgress: hasWatchProgressMarker(video),
+      });
+    }
+  }
+
+  return dedupeVideos(videos);
+}
+
+function dedupeVideos(videos) {
+  const seenUrls = new Set();
+  const deduped = [];
+
+  for (const video of videos) {
+    if (!video?.url || seenUrls.has(video.url)) {
+      continue;
+    }
+
+    seenUrls.add(video.url);
+    deduped.push(video);
+  }
+
+  return deduped;
 }
 
 export async function getChannelAvatarUrl(channelUrl) {

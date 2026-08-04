@@ -4,6 +4,8 @@ import * as constants from "../../core/constants.js";
 import * as settingsStore from "../../core/settings.js";
 
 import {
+  buildFeedRowDescriptors,
+  buildFeedRowRecord,
   buildFeedRowRecords,
   filterVideosByWatchState,
   getActiveRowIds,
@@ -94,6 +96,82 @@ describe("feed row model", () => {
 
     expect(filterVideosByWatchState(videos, false)).toBe(videos);
     expect(filterVideosByWatchState(videos, true)).toEqual([video("a")]);
+  });
+
+  it("builds ordered active row descriptors without fetched data", () => {
+    const descriptors = buildFeedRowDescriptors({
+      playlists: [playlistA, { ...playlistB, enabled: false }],
+      showSubscriptions: true,
+      subscriptionsUnwatchedOnly: false,
+      rowOrder: [
+        settingsStore.getPlaylistRowId("PLB"),
+        constants.SUBSCRIPTIONS_ROW_ID,
+        settingsStore.getPlaylistRowId("PLA"),
+      ],
+    });
+
+    expect(descriptors).toEqual([
+      {
+        rowId: constants.SUBSCRIPTIONS_ROW_ID,
+        type: "subscriptions",
+        title: "Subscriptions",
+        unwatchedOnly: false,
+      },
+      {
+        rowId: settingsStore.getPlaylistRowId("PLA"),
+        type: "playlist",
+        playlist: playlistA,
+        unwatchedOnly: true,
+      },
+    ]);
+  });
+
+  it("builds a single playlist row record from descriptor data", () => {
+    const descriptor = buildFeedRowDescriptors({
+      playlists: [playlistA],
+      showSubscriptions: false,
+      subscriptionsUnwatchedOnly: true,
+      rowOrder: [settingsStore.getPlaylistRowId("PLA")],
+    })[0];
+
+    expect(
+      buildFeedRowRecord({
+        descriptor,
+        data: {
+          title: "Fetched Alpha",
+          videos: [video("a1"), video("a2", true)],
+        },
+      }),
+    ).toEqual({
+      rowId: settingsStore.getPlaylistRowId("PLA"),
+      type: "playlist",
+      playlist: playlistA,
+      title: "Fetched Alpha",
+      videos: [video("a1")],
+      unwatchedOnly: true,
+    });
+  });
+
+  it("builds a single subscriptions row record from descriptor data", () => {
+    const descriptor = buildFeedRowDescriptors({
+      playlists: [],
+      showSubscriptions: true,
+      subscriptionsUnwatchedOnly: true,
+      rowOrder: [constants.SUBSCRIPTIONS_ROW_ID],
+    })[0];
+
+    expect(
+      buildFeedRowRecord({
+        descriptor,
+        data: [video("s1"), video("s2", true)],
+      }),
+    ).toEqual({
+      rowId: constants.SUBSCRIPTIONS_ROW_ID,
+      type: "subscriptions",
+      title: "Subscriptions",
+      videos: [video("s1")],
+      unwatchedOnly: true,
+    });
   });
 
   it("returns only enabled active row ids", () => {

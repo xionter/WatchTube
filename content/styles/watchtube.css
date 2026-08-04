@@ -258,6 +258,10 @@
   width: 100%;
 }
 
+.watchtube-row-shell {
+  display: none;
+}
+
 .watchtube-add-section {
   grid-template-columns: 1fr;
   gap: 0;
@@ -705,4 +709,16 @@ html[dark] .watchtube-dialog-button-primary {
   border-color: #ff0033;
   background: #ff0033;
   color: #ffffff;
+}
+
+@media (max-width: 960px) {
+  .watchtube-section {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .watchtube-section {
+    grid-template-columns: 1fr;
+  }
 }

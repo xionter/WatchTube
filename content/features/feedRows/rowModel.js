@@ -61,6 +61,78 @@ export function buildFeedRowRecords({
   return orderedRecords;
 }
 
+export function buildFeedRowDescriptors(settings) {
+  const descriptorsByRowId = new Map();
+
+  for (const playlist of settings.playlists.filter(
+    (playlist) => playlist.enabled,
+  )) {
+    const rowId = settingsStore.getPlaylistRowId(playlist.playlistId);
+
+    descriptorsByRowId.set(rowId, {
+      rowId,
+      type: "playlist",
+      playlist,
+      unwatchedOnly: playlist.unwatchedOnly,
+    });
+  }
+
+  if (settings.showSubscriptions) {
+    descriptorsByRowId.set(constants.SUBSCRIPTIONS_ROW_ID, {
+      rowId: constants.SUBSCRIPTIONS_ROW_ID,
+      type: "subscriptions",
+      title: "Subscriptions",
+      unwatchedOnly: settings.subscriptionsUnwatchedOnly,
+    });
+  }
+
+  const orderedDescriptors = [];
+
+  for (const rowId of settings.rowOrder) {
+    const descriptor = descriptorsByRowId.get(rowId);
+
+    if (!descriptor) {
+      continue;
+    }
+
+    orderedDescriptors.push(descriptor);
+    descriptorsByRowId.delete(rowId);
+  }
+
+  orderedDescriptors.push(...descriptorsByRowId.values());
+
+  return orderedDescriptors;
+}
+
+export function buildFeedRowRecord({ descriptor, data }) {
+  if (descriptor.type === "subscriptions") {
+    return {
+      rowId: constants.SUBSCRIPTIONS_ROW_ID,
+      type: "subscriptions",
+      title: "Subscriptions",
+      videos: filterVideosByWatchState(
+        Array.isArray(data) ? data : [],
+        descriptor.unwatchedOnly,
+      ),
+      unwatchedOnly: descriptor.unwatchedOnly,
+    };
+  }
+
+  const playlist = descriptor.playlist;
+
+  return {
+    rowId: descriptor.rowId,
+    type: "playlist",
+    playlist,
+    title: data?.title || playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
+    videos: filterVideosByWatchState(
+      Array.isArray(data?.videos) ? data.videos : [],
+      descriptor.unwatchedOnly,
+    ),
+    unwatchedOnly: descriptor.unwatchedOnly,
+  };
+}
+
 export function filterVideosByWatchState(videos, unwatchedOnly) {
   if (!unwatchedOnly) {
     return videos;

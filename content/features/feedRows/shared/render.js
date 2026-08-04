@@ -12,6 +12,34 @@ export function resetRenderState() {
   rowStates.clear();
 }
 
+export function syncRowShells(grid, rowIds) {
+  if (!grid) {
+    return;
+  }
+
+  renderInProgress = true;
+
+  try {
+    grid.classList.add("watchtube-grid");
+
+    const anchor = findFirstFeedItem(grid);
+
+    for (const rowId of rowIds) {
+      const section = getOrCreateSection(grid, rowId);
+
+      if (!rowStates.has(rowId) && !section.childElementCount) {
+        section.classList.add("watchtube-row-shell");
+      }
+
+      grid.insertBefore(section, anchor);
+    }
+  } catch (error) {
+    console.error("WATCHTUBE RENDER SHELL SYNC FAILED", error);
+  } finally {
+    renderInProgress = false;
+  }
+}
+
 export function renderFeedRow(
   grid,
   { rowId, title, videos, loadAvatar, controls = null, controlsSignature = "" },
@@ -31,6 +59,7 @@ export function renderFeedRow(
     state.title === title &&
     displayedVideosStillAvailable(state.displayedUrls, videos)
   ) {
+    syncRowControls(section, rowId, controls, controlsSignature);
     rowStates.set(rowId, {
       ...state,
       grid,
@@ -41,8 +70,6 @@ export function renderFeedRow(
       videos,
       loadAvatar,
     });
-    syncRowControls(section, rowId, controls);
-    ensureSectionPosition(grid, section);
 
     return;
   }
@@ -169,21 +196,31 @@ function replaceFeedRowContents(
 
   try {
     sectionCache.set(rowId, section);
+    avatar.cancelPendingAvatarLoads(section);
     section.replaceChildren();
 
+    section.classList.remove("watchtube-row-shell");
     section.classList.remove("watchtube-add-section");
     section.classList.remove("watchtube-edit-section");
 
     const button = createShuffleButton(rowId);
+    const fragment = document.createDocumentFragment();
 
     button.hidden = !videos.length;
 
-    section.append(button);
-    syncRowControls(section, rowId, controls);
+    fragment.append(button);
+
+    const rowControls = createRowControlsNode(rowId, controls, controlsSignature);
+
+    if (rowControls) {
+      fragment.append(rowControls);
+    }
 
     for (const video of picks) {
-      section.append(createGridItem(video, rowId, title, loadAvatar));
+      fragment.append(createGridItem(video, rowId, title, loadAvatar));
     }
+
+    section.append(fragment);
 
     rowStates.set(rowId, {
       grid: section.parentElement,
@@ -210,6 +247,7 @@ export function removeFeedRow(rowId) {
   document
     .querySelectorAll(`.watchtube-section[data-watchtube-row="${rowId}"]`)
     .forEach((node) => {
+      avatar.cancelPendingAvatarLoads(node);
       node.remove();
     });
 
@@ -254,31 +292,18 @@ function ensureMountedSection(grid, rowId) {
   try {
     grid.classList.add("watchtube-grid");
 
-    let section = sectionCache.get(rowId);
+    let section = getOrCreateSection(grid, rowId);
     let wasCreated = false;
 
-    if (section && section.parentElement !== grid) {
-      section.remove();
-    }
-
-    if (!section || !section.isConnected || section.parentElement !== grid) {
-      section = findSection(rowId);
-    }
-
-    if (section && section.parentElement !== grid) {
-      section.remove();
-    }
-
-    if (!section || !section.isConnected || section.parentElement !== grid) {
-      section = document.createElement("div");
-
-      section.className = "watchtube-section";
-      section.dataset.watchtubeRow = rowId;
+    if (!section.isConnected || section.parentElement !== grid) {
       wasCreated = true;
     }
 
     sectionCache.set(rowId, section);
-    ensureSectionPosition(grid, section);
+
+    if (section.parentElement !== grid) {
+      ensureSectionPosition(grid, section);
+    }
 
     return { section, wasCreated };
   } catch (error) {
@@ -288,6 +313,33 @@ function ensureMountedSection(grid, rowId) {
   } finally {
     renderInProgress = false;
   }
+}
+
+function getOrCreateSection(grid, rowId) {
+  let section = sectionCache.get(rowId);
+
+  if (section && section.parentElement !== grid) {
+    section.remove();
+  }
+
+  if (!section || !section.isConnected || section.parentElement !== grid) {
+    section = findSection(rowId);
+  }
+
+  if (section && section.parentElement !== grid) {
+    section.remove();
+  }
+
+  if (!section || !section.isConnected || section.parentElement !== grid) {
+    section = document.createElement("div");
+
+    section.className = "watchtube-section";
+    section.dataset.watchtubeRow = rowId;
+  }
+
+  sectionCache.set(rowId, section);
+
+  return section;
 }
 
 function ensureSectionPosition(grid, section) {
@@ -388,6 +440,8 @@ function createCard(video, title, loadAvatar) {
   thumbnail.className = "watchtube-thumb";
   thumbnail.src = video.thumbnail;
   thumbnail.alt = "";
+  thumbnail.loading = "lazy";
+  thumbnail.decoding = "async";
 
   meta.className = "watchtube-meta";
   copy.className = "watchtube-copy";
@@ -412,7 +466,7 @@ function createCard(video, title, loadAvatar) {
 
   avatar.wireAvatarFallback(card, video);
 
-  void avatar.loadMissingChannelAvatar(card, video, loadAvatar);
+  avatar.scheduleMissingChannelAvatar(card, video, loadAvatar);
 
   return card;
 }
@@ -440,21 +494,36 @@ export function isWatchTubeNode(node) {
   );
 }
 
-function syncRowControls(section, rowId, controls) {
+function syncRowControls(section, rowId, controls, controlsSignature = "") {
+  const state = rowStates.get(rowId);
+
+  if (state?.controlsSignature === controlsSignature) {
+    return;
+  }
+
   section.querySelector(".watchtube-row-controls")?.remove();
 
   if (!controls) {
     return;
   }
 
-  section.prepend(createRowControls(rowId, controls));
+  section.prepend(createRowControls(rowId, controls, controlsSignature));
 }
 
-function createRowControls(rowId, controls) {
+function createRowControlsNode(rowId, controls, controlsSignature) {
+  if (!controls) {
+    return null;
+  }
+
+  return createRowControls(rowId, controls, controlsSignature);
+}
+
+function createRowControls(rowId, controls, controlsSignature = "") {
   const wrapper = document.createElement("div");
 
   wrapper.className = "watchtube-row-controls";
   wrapper.dataset.watchtubeRow = rowId;
+  wrapper.dataset.watchtubeControlsSignature = controlsSignature;
   wrapper.setAttribute("aria-label", "Row controls");
 
   wrapper.append(
