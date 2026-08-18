@@ -1,5 +1,7 @@
 .watchtube-section *,
-.watchtube-dialog-overlay * {
+.watchtube-dialog-overlay *,
+.watchtube-video-actions-menu,
+.watchtube-video-actions-menu * {
   box-sizing: border-box;
 }
 
@@ -50,9 +52,11 @@
 
   grid-template-columns:
     36px
-    minmax(0, 1fr);
+    minmax(0, 1fr)
+    40px;
 
-  gap: 12px;
+  column-gap: 12px;
+  row-gap: 0;
 
   min-width: 0;
 
@@ -123,6 +127,103 @@
   margin-top: 4px;
 
   text-decoration: none;
+}
+
+.watchtube-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-self: start;
+
+  min-width: 40px;
+  height: 40px;
+}
+
+.watchtube-video-actions-button {
+  display: inline-grid;
+  place-items: center;
+
+  width: 40px;
+  height: 40px;
+  padding: 0;
+
+  border: none;
+  border-radius: 50%;
+
+  background: transparent;
+  color: #606060;
+
+  cursor: pointer;
+
+  font:
+    700 22px/1 Roboto,
+    Arial,
+    sans-serif;
+
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.watchtube-video-actions-button:hover,
+.watchtube-video-actions-button:focus-visible,
+.watchtube-video-actions-button[aria-expanded="true"] {
+  background: rgba(0, 0, 0, 0.08);
+  color: #0f0f0f;
+  outline: none;
+}
+
+.watchtube-video-actions-menu {
+  position: fixed;
+
+  z-index: 2147483647;
+
+  display: grid;
+  gap: 2px;
+
+  width: min(208px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
+  padding: 8px 0;
+  overflow-y: auto;
+
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+
+  background: #ffffff;
+  color: #0f0f0f;
+
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 12px 24px rgba(0, 0, 0, 0.14);
+
+  font-family: Roboto, Arial, sans-serif;
+}
+
+.watchtube-video-actions-menu-item {
+  display: flex;
+  align-items: center;
+
+  min-height: 40px;
+  width: 100%;
+  padding: 0 16px;
+
+  border: none;
+
+  background: transparent;
+  color: inherit;
+
+  cursor: pointer;
+  text-align: left;
+
+  font:
+    400 14px/1.25 Roboto,
+    Arial,
+    sans-serif;
+}
+
+.watchtube-video-actions-menu-item:hover,
+.watchtube-video-actions-menu-item:focus-visible {
+  background: rgba(0, 0, 0, 0.06);
+  outline: none;
 }
 
 .watchtube-shuffle {
@@ -380,6 +481,31 @@
 
 html[dark] .watchtube-card {
   color: #f1f1f1 !important;
+}
+
+html[dark] .watchtube-video-actions-button {
+  color: #aaaaaa;
+}
+
+html[dark] .watchtube-video-actions-button:hover,
+html[dark] .watchtube-video-actions-button:focus-visible,
+html[dark] .watchtube-video-actions-button[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f1f1f1;
+}
+
+html[dark] .watchtube-video-actions-menu {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #282828;
+  color: #f1f1f1;
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.42),
+    0 12px 24px rgba(0, 0, 0, 0.38);
+}
+
+html[dark] .watchtube-video-actions-menu-item:hover,
+html[dark] .watchtube-video-actions-menu-item:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 html[dark] .watchtube-row-control {

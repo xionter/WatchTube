@@ -7,8 +7,11 @@ const rowStates = new Map();
 const sectionCache = new Map();
 
 let renderInProgress = false;
+let activeVideoActionsMenu = null;
+let videoActionsMenuId = 0;
 
 export function resetRenderState() {
+  closeActiveVideoActionsMenu();
   rowStates.clear();
 }
 
@@ -196,6 +199,7 @@ function replaceFeedRowContents(
 
   try {
     sectionCache.set(rowId, section);
+    closeActiveVideoActionsMenu({ rowId });
     avatar.cancelPendingAvatarLoads(section);
     section.replaceChildren();
 
@@ -244,6 +248,8 @@ function replaceFeedRowContents(
 }
 
 export function removeFeedRow(rowId) {
+  closeActiveVideoActionsMenu({ rowId });
+
   document
     .querySelectorAll(`.watchtube-section[data-watchtube-row="${rowId}"]`)
     .forEach((node) => {
@@ -434,6 +440,7 @@ function createCard(video, title, loadAvatar) {
   const cardTitle = document.createElement("div");
   const channelLink = document.createElement("a");
   const source = document.createElement("div");
+  const actions = createVideoActions(video);
 
   thumbnailWrap.className = "watchtube-thumb-wrap";
 
@@ -461,7 +468,7 @@ function createCard(video, title, loadAvatar) {
   thumbnailLink.append(thumbnailWrap);
   titleLink.append(cardTitle);
   copy.append(titleLink, channelLink, source);
-  meta.append(avatarElement, copy);
+  meta.append(avatarElement, copy, actions);
   card.append(thumbnailLink, meta);
 
   avatar.wireAvatarFallback(card, video);
@@ -469,6 +476,381 @@ function createCard(video, title, loadAvatar) {
   avatar.scheduleMissingChannelAvatar(card, video, loadAvatar);
 
   return card;
+}
+
+function createVideoActions(video) {
+  const wrapper = document.createElement("div");
+  const button = document.createElement("button");
+  const menuId = `watchtube-video-actions-menu-${++videoActionsMenuId}`;
+
+  wrapper.className = "watchtube-card-actions";
+  wrapper.dataset.watchtubeUi = "true";
+
+  button.className = "watchtube-video-actions-button";
+  button.dataset.watchtubeUi = "true";
+  button.type = "button";
+  button.textContent = "⋮";
+  button.title = "More actions";
+  button.id = `${menuId}-button`;
+  button.setAttribute("aria-label", "More actions");
+  button.setAttribute("aria-haspopup", "menu");
+  button.setAttribute("aria-expanded", "false");
+  button.setAttribute("aria-controls", menuId);
+
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleVideoActionsMenu({ button, menuId, video });
+  });
+
+  button.addEventListener("keydown", (event) => {
+    if (!["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    openVideoActionsMenu({
+      button,
+      menuId,
+      video,
+      focusIndex: event.key === "ArrowUp" ? -1 : 0,
+    });
+  });
+
+  wrapper.append(button);
+
+  return wrapper;
+}
+
+function toggleVideoActionsMenu({ button, menuId, video }) {
+  if (activeVideoActionsMenu?.button === button) {
+    closeActiveVideoActionsMenu({ restoreFocus: true });
+
+    return;
+  }
+
+  openVideoActionsMenu({ button, menuId, video });
+}
+
+function openVideoActionsMenu({ button, menuId, video, focusIndex = null }) {
+  closeActiveVideoActionsMenu();
+
+  const menu = createVideoActionsMenu({ button, menuId, video });
+
+  document.documentElement.append(menu);
+  positionVideoActionsMenu(button, menu);
+
+  button.setAttribute("aria-expanded", "true");
+
+  activeVideoActionsMenu = {
+    button,
+    menu,
+    rowId: button.closest("[data-watchtube-row]")?.dataset.watchtubeRow || "",
+  };
+
+  document.addEventListener("click", handleVideoActionsDocumentClick, true);
+  document.addEventListener("keydown", handleVideoActionsDocumentKeydown, true);
+  document.addEventListener("scroll", handleVideoActionsWindowChange, true);
+  window.addEventListener("resize", handleVideoActionsWindowChange, true);
+
+  if (focusIndex !== null) {
+    focusVideoActionsMenuItem(menu, focusIndex);
+  }
+}
+
+function createVideoActionsMenu({ button, menuId, video }) {
+  const menu = document.createElement("div");
+
+  menu.className = "watchtube-video-actions-menu";
+  menu.dataset.watchtubeUi = "true";
+  menu.id = menuId;
+  menu.setAttribute("role", "menu");
+  menu.setAttribute("aria-labelledby", button.id);
+  menu.tabIndex = -1;
+
+  menu.append(
+    createVideoActionsMenuItem({
+      label: "Open video",
+      onSelect: () => {
+        window.location.assign(video.url);
+      },
+    }),
+  );
+
+  if (video.channelUrl) {
+    menu.append(
+      createVideoActionsMenuItem({
+        label: "Open channel",
+        onSelect: () => {
+          window.location.assign(video.channelUrl);
+        },
+      }),
+    );
+  }
+
+  menu.append(
+    createVideoActionsMenuItem({
+      label: "Copy video link",
+      onSelect: () => {
+        void copyText(video.url);
+      },
+    }),
+  );
+
+  menu.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  menu.addEventListener("keydown", handleVideoActionsMenuKeydown);
+
+  return menu;
+}
+
+function createVideoActionsMenuItem({ label, onSelect }) {
+  const item = document.createElement("button");
+
+  item.className = "watchtube-video-actions-menu-item";
+  item.dataset.watchtubeUi = "true";
+  item.type = "button";
+  item.textContent = label;
+  item.setAttribute("role", "menuitem");
+
+  item.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect?.();
+    closeActiveVideoActionsMenu({ restoreFocus: true });
+  });
+
+  return item;
+}
+
+function handleVideoActionsMenuKeydown(event) {
+  if (!activeVideoActionsMenu) {
+    return;
+  }
+
+  const items = getVideoActionsMenuItems(activeVideoActionsMenu.menu);
+  const currentIndex = items.indexOf(document.activeElement);
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    closeActiveVideoActionsMenu({ restoreFocus: true });
+
+    return;
+  }
+
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    event.stopPropagation();
+    focusVideoActionsMenuItem(
+      activeVideoActionsMenu.menu,
+      currentIndex + 1,
+    );
+
+    return;
+  }
+
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    event.stopPropagation();
+    focusVideoActionsMenuItem(
+      activeVideoActionsMenu.menu,
+      currentIndex - 1,
+    );
+
+    return;
+  }
+
+  if (event.key === "Home") {
+    event.preventDefault();
+    event.stopPropagation();
+    focusVideoActionsMenuItem(activeVideoActionsMenu.menu, 0);
+
+    return;
+  }
+
+  if (event.key === "End") {
+    event.preventDefault();
+    event.stopPropagation();
+    focusVideoActionsMenuItem(activeVideoActionsMenu.menu, -1);
+  }
+}
+
+function handleVideoActionsDocumentClick(event) {
+  if (!activeVideoActionsMenu) {
+    return;
+  }
+
+  const { button, menu } = activeVideoActionsMenu;
+
+  if (button.contains(event.target) || menu.contains(event.target)) {
+    return;
+  }
+
+  closeActiveVideoActionsMenu();
+}
+
+function handleVideoActionsDocumentKeydown(event) {
+  if (event.key !== "Escape" || !activeVideoActionsMenu) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  closeActiveVideoActionsMenu({ restoreFocus: true });
+}
+
+function handleVideoActionsWindowChange() {
+  if (!activeVideoActionsMenu) {
+    return;
+  }
+
+  positionVideoActionsMenu(
+    activeVideoActionsMenu.button,
+    activeVideoActionsMenu.menu,
+  );
+}
+
+function closeActiveVideoActionsMenu({
+  restoreFocus = false,
+  rowId = null,
+} = {}) {
+  if (!activeVideoActionsMenu) {
+    return;
+  }
+
+  if (rowId && activeVideoActionsMenu.rowId !== rowId) {
+    return;
+  }
+
+  const { button, menu } = activeVideoActionsMenu;
+
+  document.removeEventListener("click", handleVideoActionsDocumentClick, true);
+  document.removeEventListener(
+    "keydown",
+    handleVideoActionsDocumentKeydown,
+    true,
+  );
+  document.removeEventListener("scroll", handleVideoActionsWindowChange, true);
+  window.removeEventListener("resize", handleVideoActionsWindowChange, true);
+
+  button.setAttribute("aria-expanded", "false");
+  menu.remove();
+  activeVideoActionsMenu = null;
+
+  if (restoreFocus && button.isConnected) {
+    button.focus();
+  }
+}
+
+function positionVideoActionsMenu(button, menu) {
+  const position = calculateVideoActionsMenuPosition({
+    buttonRect: button.getBoundingClientRect(),
+    menuRect: menu.getBoundingClientRect(),
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+  });
+
+  menu.style.left = `${position.left}px`;
+  menu.style.top = `${position.top}px`;
+  menu.style.maxHeight = `${position.maxHeight}px`;
+}
+
+function focusVideoActionsMenuItem(menu, index) {
+  const items = getVideoActionsMenuItems(menu);
+
+  if (!items.length) {
+    menu.focus();
+
+    return;
+  }
+
+  const normalizedIndex = ((index % items.length) + items.length) % items.length;
+
+  items[normalizedIndex].focus();
+}
+
+function getVideoActionsMenuItems(menu) {
+  return [...menu.querySelectorAll(".watchtube-video-actions-menu-item")];
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+
+      return;
+    } catch {
+      // Fall through to the legacy copy path.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  textarea.dataset.watchtubeUi = "true";
+  textarea.setAttribute("aria-hidden", "true");
+
+  document.body.append(textarea);
+  textarea.select();
+
+  try {
+    document.execCommand("copy");
+  } finally {
+    textarea.remove();
+  }
+}
+
+export function calculateVideoActionsMenuPosition({
+  buttonRect,
+  menuRect,
+  viewportWidth,
+  viewportHeight,
+  viewportPadding = 8,
+  gap = 6,
+}) {
+  const menuWidth = Math.max(menuRect.width, 0);
+  const menuHeight = Math.max(menuRect.height, 0);
+  const minLeft = viewportPadding;
+  const maxLeft = Math.max(minLeft, viewportWidth - viewportPadding - menuWidth);
+  const preferredLeft = buttonRect.right - menuWidth;
+  const left = clamp(preferredLeft, minLeft, maxLeft);
+  const belowTop = buttonRect.bottom + gap;
+  const aboveTop = buttonRect.top - gap - menuHeight;
+  const belowSpace = viewportHeight - viewportPadding - belowTop;
+  const aboveSpace = buttonRect.top - viewportPadding - gap;
+  const fitsBelow = menuHeight <= belowSpace;
+  const fitsAbove = aboveTop >= viewportPadding;
+  const opensAbove = !fitsBelow && (fitsAbove || aboveSpace > belowSpace);
+  const availableHeight = opensAbove ? aboveSpace : belowSpace;
+  const viewportAvailableHeight = Math.max(
+    1,
+    viewportHeight - viewportPadding * 2,
+  );
+  const maxHeight = Math.min(
+    Math.max(80, Math.min(menuHeight, availableHeight)),
+    viewportAvailableHeight,
+  );
+  const unclampedTop = opensAbove
+    ? buttonRect.top - gap - maxHeight
+    : belowTop;
+  const top = clamp(
+    unclampedTop,
+    viewportPadding,
+    Math.max(viewportPadding, viewportHeight - viewportPadding - maxHeight),
+  );
+
+  return { left, top, maxHeight };
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function createVideoLink(url) {
