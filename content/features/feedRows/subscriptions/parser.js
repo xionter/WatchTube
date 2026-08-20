@@ -146,6 +146,8 @@ function extractRenderedVideo(item) {
     "Untitled";
 
   return {
+    videoId,
+
     title,
 
     url: `https://www.youtube.com/watch?v=${videoId}`,
@@ -355,6 +357,8 @@ export function extractVideo(video) {
   }
 
   return {
+    videoId: video.videoId,
+
     title: utils.getValue(video, ["title", "runs", 0, "text"], "Untitled"),
 
     url: `https://www.youtube.com/watch?v=${video.videoId}`,

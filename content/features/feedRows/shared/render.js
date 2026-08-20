@@ -1,6 +1,16 @@
 import * as utils from "../../../core/utils.js";
 import * as constants from "../../../core/constants.js";
 import * as avatar from "./avatar.js";
+import {
+  buildVideoMenuActions,
+  decodeVideoActionBridgeDetail,
+  encodeVideoActionBridgeDetail,
+  shareVideoLink,
+  VIDEO_ACTION_QUEUE,
+  VIDEO_ACTION_REQUEST_EVENT,
+  VIDEO_ACTION_RESPONSE_EVENT,
+  VIDEO_ACTION_WATCH_LATER,
+} from "./videoActions.js";
 
 const shuffleLocks = new Set();
 const rowStates = new Map();
@@ -9,6 +19,7 @@ const sectionCache = new Map();
 let renderInProgress = false;
 let activeVideoActionsMenu = null;
 let videoActionsMenuId = 0;
+let videoActionRequestId = 0;
 
 export function resetRenderState() {
   closeActiveVideoActionsMenu();
@@ -561,6 +572,7 @@ function openVideoActionsMenu({ button, menuId, video, focusIndex = null }) {
 
 function createVideoActionsMenu({ button, menuId, video }) {
   const menu = document.createElement("div");
+  const actions = buildVideoMenuActions(video);
 
   menu.className = "watchtube-video-actions-menu";
   menu.dataset.watchtubeUi = "true";
@@ -569,34 +581,28 @@ function createVideoActionsMenu({ button, menuId, video }) {
   menu.setAttribute("aria-labelledby", button.id);
   menu.tabIndex = -1;
 
-  menu.append(
-    createVideoActionsMenuItem({
-      label: "Open video",
-      onSelect: () => {
-        window.location.assign(video.url);
-      },
-    }),
-  );
-
-  if (video.channelUrl) {
+  for (const action of actions) {
     menu.append(
       createVideoActionsMenuItem({
-        label: "Open channel",
+        icon: action.icon,
+        label: action.label,
         onSelect: () => {
-          window.location.assign(video.channelUrl);
+          if (
+            action.id === VIDEO_ACTION_QUEUE ||
+            action.id === VIDEO_ACTION_WATCH_LATER
+          ) {
+            void performVideoAction(action.id, action.videoId);
+
+            return;
+          }
+
+          if (action.id === "share") {
+            void shareVideoLink({ video, copyText });
+          }
         },
       }),
     );
   }
-
-  menu.append(
-    createVideoActionsMenuItem({
-      label: "Copy video link",
-      onSelect: () => {
-        void copyText(video.url);
-      },
-    }),
-  );
 
   menu.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -607,14 +613,66 @@ function createVideoActionsMenu({ button, menuId, video }) {
   return menu;
 }
 
-function createVideoActionsMenuItem({ label, onSelect }) {
+function performVideoAction(action, videoId) {
+  return new Promise((resolve, reject) => {
+    const requestId = `watchtube-video-action-${Date.now()}-${++videoActionRequestId}`;
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("YouTube video action timed out"));
+    }, 3000);
+
+    function cleanup() {
+      window.clearTimeout(timeoutId);
+      document.removeEventListener(VIDEO_ACTION_RESPONSE_EVENT, handleResponse);
+    }
+
+    function handleResponse(event) {
+      const detail = decodeVideoActionBridgeDetail(event.detail);
+
+      if (detail.requestId !== requestId) {
+        return;
+      }
+
+      cleanup();
+
+      if (detail.ok) {
+        resolve();
+
+        return;
+      }
+
+      reject(new Error(detail.error || "YouTube video action failed"));
+    }
+
+    document.addEventListener(VIDEO_ACTION_RESPONSE_EVENT, handleResponse);
+    document.dispatchEvent(
+      new CustomEvent(VIDEO_ACTION_REQUEST_EVENT, {
+        detail: encodeVideoActionBridgeDetail({
+          action,
+          requestId,
+          videoId,
+        }),
+      }),
+    );
+  }).catch((error) => {
+    console.warn("WatchTube: failed to run video action", error);
+  });
+}
+
+function createVideoActionsMenuItem({ icon, label, onSelect }) {
   const item = document.createElement("button");
+  const iconElement = createVideoActionsMenuIcon(icon);
+  const labelElement = document.createElement("span");
 
   item.className = "watchtube-video-actions-menu-item";
   item.dataset.watchtubeUi = "true";
   item.type = "button";
-  item.textContent = label;
   item.setAttribute("role", "menuitem");
+
+  labelElement.className = "watchtube-video-actions-menu-label";
+  labelElement.textContent = label;
+
+  item.append(iconElement, labelElement);
 
   item.addEventListener("click", (event) => {
     event.preventDefault();
@@ -624,6 +682,41 @@ function createVideoActionsMenuItem({ label, onSelect }) {
   });
 
   return item;
+}
+
+function createVideoActionsMenuIcon(icon) {
+  const wrapper = document.createElement("span");
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+  wrapper.className = "watchtube-video-actions-menu-icon";
+  wrapper.setAttribute("aria-hidden", "true");
+
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("focusable", "false");
+
+  path.setAttribute("d", getVideoActionsMenuIconPath(icon));
+
+  svg.append(path);
+  wrapper.append(svg);
+
+  return wrapper;
+}
+
+function getVideoActionsMenuIconPath(icon) {
+  if (icon === "queue") {
+    return "M4 6h10v2H4V6Zm0 5h10v2H4v-2Zm0 5h7v2H4v-2Zm12-4V8h2v4h4v2h-4v4h-2v-4h-4v-2h4Z";
+  }
+
+  if (icon === "watchLater") {
+    return "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 11.59 3.3 3.3-1.41 1.41L11 14.41V6h2v7.59Z";
+  }
+
+  if (icon === "share") {
+    return "M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.06-.23.09-.46.09-.7s-.03-.47-.09-.7l7.05-4.11A2.99 2.99 0 1 0 15 5c0 .24.03.47.09.7L8.04 9.81A2.99 2.99 0 1 0 8.04 14.2l7.12 4.17c-.05.2-.08.41-.08.63a2.92 2.92 0 1 0 2.92-2.92Z";
+  }
+
+  return "";
 }
 
 function handleVideoActionsMenuKeydown(event) {

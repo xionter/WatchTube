@@ -24,6 +24,7 @@ import * as feedRowRenderer from "./features/feedRows/shared/render.js";
 
 const PRIORITY_ROW_COUNT = 2;
 const ROW_FETCH_CONCURRENCY = 2;
+const VIDEO_ACTION_BRIDGE_SCRIPT_ID = "watchtube-video-action-bridge";
 
 let domObserverStarted = false;
 let refreshScheduled = false;
@@ -52,6 +53,7 @@ start();
 
 function start() {
   void ensureStyleElement();
+  ensureVideoActionBridge();
 
   watchYoutubeNavigation();
   watchPageReadiness();
@@ -62,6 +64,30 @@ function start() {
 
   scheduleRefresh();
   startBootstrapRefreshes();
+}
+
+function ensureVideoActionBridge() {
+  if (document.getElementById(VIDEO_ACTION_BRIDGE_SCRIPT_ID)) {
+    return;
+  }
+
+  const script = document.createElement("script");
+
+  script.id = VIDEO_ACTION_BRIDGE_SCRIPT_ID;
+  script.type = "module";
+  script.src = chrome.runtime.getURL("content/queueBridge.js");
+  script.dataset.watchtubeUi = "true";
+  script.addEventListener(
+    "load",
+    () => {
+      script.remove();
+    },
+    {
+      once: true,
+    },
+  );
+
+  (document.head || document.documentElement).append(script);
 }
 
 function installDebugHelpers() {

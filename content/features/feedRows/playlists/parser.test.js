@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractInnertubeApiKey,
   extractInnertubeContext,
+  extractVideo,
   extractYtConfig,
   findContinuationVideos,
   findPlaylistContinuation,
@@ -147,5 +148,16 @@ describe("playlist parser continuations", () => {
         clientVersion: "1.2.3",
       },
     });
+  });
+});
+
+describe("playlist video extraction", () => {
+  it("includes the normalized video id", () => {
+    expect(extractVideo(playlistVideo("video-a").playlistVideoRenderer)).toEqual(
+      expect.objectContaining({
+        videoId: "video-a",
+        url: "https://www.youtube.com/watch?v=video-a",
+      }),
+    );
   });
 });

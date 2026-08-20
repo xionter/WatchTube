@@ -219,6 +219,7 @@ export function extractVideo(video) {
   }
 
   return {
+    videoId: video.videoId,
     title:
       utils.getValue(video, ["title", "runs", 0, "text"], "") ||
       utils.getValue(video, ["title", "simpleText"], "") ||

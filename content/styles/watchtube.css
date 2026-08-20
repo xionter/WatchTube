@@ -178,33 +178,35 @@
   z-index: 2147483647;
 
   display: grid;
-  gap: 2px;
+  gap: 0;
 
-  width: min(208px, calc(100vw - 16px));
+  width: min(232px, calc(100vw - 16px));
   max-width: calc(100vw - 16px);
   padding: 8px 0;
   overflow-y: auto;
 
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
 
-  background: #ffffff;
-  color: #0f0f0f;
+  background: #282828;
+  color: #f1f1f1;
 
   box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.12),
-    0 12px 24px rgba(0, 0, 0, 0.14);
+    0 4px 8px rgba(0, 0, 0, 0.42),
+    0 12px 24px rgba(0, 0, 0, 0.38);
 
   font-family: Roboto, Arial, sans-serif;
 }
 
 .watchtube-video-actions-menu-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 16px;
   align-items: center;
 
-  min-height: 40px;
+  min-height: 44px;
   width: 100%;
-  padding: 0 16px;
+  padding: 0 18px;
 
   border: none;
 
@@ -222,8 +224,32 @@
 
 .watchtube-video-actions-menu-item:hover,
 .watchtube-video-actions-menu-item:focus-visible {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.1);
   outline: none;
+}
+
+.watchtube-video-actions-menu-icon {
+  display: inline-grid;
+  place-items: center;
+
+  width: 24px;
+  height: 24px;
+}
+
+.watchtube-video-actions-menu-icon svg {
+  display: block;
+
+  width: 20px;
+  height: 20px;
+
+  fill: currentColor;
+}
+
+.watchtube-video-actions-menu-label {
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .watchtube-shuffle {
@@ -495,7 +521,7 @@ html[dark] .watchtube-video-actions-button[aria-expanded="true"] {
 }
 
 html[dark] .watchtube-video-actions-menu {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.08);
   background: #282828;
   color: #f1f1f1;
   box-shadow:
