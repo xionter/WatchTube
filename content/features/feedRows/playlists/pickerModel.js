@@ -12,6 +12,7 @@ export function buildPlaylistPickerModel({
   query,
 }) {
   const normalizedQuery = normalizePickerSearchQuery(query);
+  const storedPlaylistsById = getStoredPlaylistsById(settings.playlists);
   const items = [];
 
   if (shouldShowSubscriptionsInPicker(normalizedQuery)) {
@@ -29,9 +30,7 @@ export function buildPlaylistPickerModel({
       continue;
     }
 
-    const storedPlaylist = settings.playlists.find(
-      (entry) => entry.playlistId === playlist.playlistId,
-    );
+    const storedPlaylist = storedPlaylistsById.get(playlist.playlistId);
     const isEnabled = Boolean(storedPlaylist?.enabled);
     const isStored = Boolean(storedPlaylist);
 
@@ -55,4 +54,19 @@ export function buildPlaylistPickerModel({
         ? "No matching playlists."
         : "No playlists found.",
   };
+}
+
+function getStoredPlaylistsById(playlists) {
+  const storedPlaylistsById = new Map();
+
+  for (const playlist of playlists) {
+    if (
+      playlist?.playlistId &&
+      !storedPlaylistsById.has(playlist.playlistId)
+    ) {
+      storedPlaylistsById.set(playlist.playlistId, playlist);
+    }
+  }
+
+  return storedPlaylistsById;
 }

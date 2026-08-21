@@ -91,6 +91,32 @@ describe("feed row model", () => {
     ]);
   });
 
+  it("ignores missing and duplicate row ids while preserving fallback append order", () => {
+    const records = buildFeedRowRecords({
+      settings: {
+        playlists: [playlistA, playlistB],
+        showSubscriptions: true,
+        subscriptionsUnwatchedOnly: true,
+        rowOrder: [
+          "missing",
+          settingsStore.getPlaylistRowId("PLB"),
+          settingsStore.getPlaylistRowId("PLB"),
+        ],
+      },
+      playlistRows: [
+        { playlist: playlistA, data: { videos: [] } },
+        { playlist: playlistB, data: { videos: [] } },
+      ],
+      subscriptionVideos: [],
+    });
+
+    expect(records.map((record) => record.rowId)).toEqual([
+      settingsStore.getPlaylistRowId("PLB"),
+      settingsStore.getPlaylistRowId("PLA"),
+      constants.SUBSCRIPTIONS_ROW_ID,
+    ]);
+  });
+
   it("filters watched videos only when requested", () => {
     const videos = [video("a"), video("b", true)];
 
@@ -123,6 +149,21 @@ describe("feed row model", () => {
         playlist: playlistA,
         unwatchedOnly: true,
       },
+    ]);
+  });
+
+  it("appends active descriptors that are missing from rowOrder", () => {
+    const descriptors = buildFeedRowDescriptors({
+      playlists: [playlistA, playlistB],
+      showSubscriptions: true,
+      subscriptionsUnwatchedOnly: true,
+      rowOrder: [settingsStore.getPlaylistRowId("PLB")],
+    });
+
+    expect(descriptors.map((descriptor) => descriptor.rowId)).toEqual([
+      settingsStore.getPlaylistRowId("PLB"),
+      settingsStore.getPlaylistRowId("PLA"),
+      constants.SUBSCRIPTIONS_ROW_ID,
     ]);
   });
 

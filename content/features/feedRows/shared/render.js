@@ -225,7 +225,9 @@ function replaceFeedRowContents(
 
     fragment.append(button);
 
-    const rowControls = createRowControlsNode(rowId, controls, controlsSignature);
+    const rowControls = controls
+      ? createRowControls(rowId, controls, controlsSignature)
+      : null;
 
     if (rowControls) {
       fragment.append(rowControls);
@@ -368,7 +370,7 @@ function ensureSectionPosition(grid, section) {
     return;
   }
 
-  if (!firstFeedItem && section.parentElement !== grid) {
+  if (section.parentElement !== grid) {
     grid.prepend(section);
   }
 }
@@ -983,14 +985,6 @@ function syncRowControls(section, rowId, controls, controlsSignature = "") {
   }
 
   section.prepend(createRowControls(rowId, controls, controlsSignature));
-}
-
-function createRowControlsNode(rowId, controls, controlsSignature) {
-  if (!controls) {
-    return null;
-  }
-
-  return createRowControls(rowId, controls, controlsSignature);
 }
 
 function createRowControls(rowId, controls, controlsSignature = "") {

@@ -69,6 +69,39 @@ describe("playlist picker model", () => {
     ]);
   });
 
+  it("uses the first stored playlist when duplicate ids are present", () => {
+    const model = buildPlaylistPickerModel({
+      availablePlaylists: [
+        {
+          playlistId: "PLA",
+          title: "Alpha",
+        },
+      ],
+      settings: {
+        ...settings,
+        playlists: [
+          {
+            playlistId: "PLA",
+            title: "Stored Alpha",
+            enabled: false,
+          },
+          {
+            playlistId: "PLA",
+            title: "Duplicate Alpha",
+            enabled: true,
+          },
+        ],
+      },
+      query: "",
+    });
+
+    expect(model.items[1]).toMatchObject({
+      playlistId: "PLA",
+      state: "disabled",
+      stateText: "Disabled",
+    });
+  });
+
   it("filters by normalized prefix query", () => {
     const model = buildPlaylistPickerModel({
       availablePlaylists,

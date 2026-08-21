@@ -156,6 +156,7 @@ function normalizeRowOrder(settings, playlists) {
     ...playlists.map((playlist) => getPlaylistRowId(playlist.playlistId)),
     constants.SUBSCRIPTIONS_ROW_ID,
   ]);
+  const seenRowIds = new Set();
   const rowOrder = [];
 
   if (Array.isArray(settings.rowOrder)) {
@@ -164,11 +165,12 @@ function normalizeRowOrder(settings, playlists) {
 
       if (
         !validRowIds.has(normalizedRowId) ||
-        rowOrder.includes(normalizedRowId)
+        seenRowIds.has(normalizedRowId)
       ) {
         continue;
       }
 
+      seenRowIds.add(normalizedRowId);
       rowOrder.push(normalizedRowId);
     }
   }
@@ -176,12 +178,13 @@ function normalizeRowOrder(settings, playlists) {
   for (const playlist of playlists) {
     const rowId = getPlaylistRowId(playlist.playlistId);
 
-    if (!rowOrder.includes(rowId)) {
+    if (!seenRowIds.has(rowId)) {
+      seenRowIds.add(rowId);
       rowOrder.push(rowId);
     }
   }
 
-  if (!rowOrder.includes(constants.SUBSCRIPTIONS_ROW_ID)) {
+  if (!seenRowIds.has(constants.SUBSCRIPTIONS_ROW_ID)) {
     rowOrder.push(constants.SUBSCRIPTIONS_ROW_ID);
   }
 

@@ -6,59 +6,30 @@ export function buildFeedRowRecords({
   playlistRows,
   subscriptionVideos,
 }) {
-  const playlistRowsByRowId = new Map(
-    playlistRows.map((row) => [
-      settingsStore.getPlaylistRowId(row.playlist.playlistId),
-      row,
-    ]),
-  );
   const recordsByRowId = new Map();
 
-  for (const [rowId, { playlist, data }] of playlistRowsByRowId) {
-    const videos = filterVideosByWatchState(
-      Array.isArray(data?.videos) ? data.videos : [],
-      playlist.unwatchedOnly,
-    );
-
-    recordsByRowId.set(rowId, {
-      rowId,
-      type: "playlist",
+  for (const { playlist, data } of playlistRows) {
+    const record = buildPlaylistRowRecord({
+      rowId: settingsStore.getPlaylistRowId(playlist.playlistId),
       playlist,
-      title: data?.title || playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
-      videos,
+      data,
       unwatchedOnly: playlist.unwatchedOnly,
     });
+
+    recordsByRowId.set(record.rowId, record);
   }
 
   if (settings.showSubscriptions) {
-    recordsByRowId.set(constants.SUBSCRIPTIONS_ROW_ID, {
-      rowId: constants.SUBSCRIPTIONS_ROW_ID,
-      type: "subscriptions",
-      title: "Subscriptions",
-      videos: filterVideosByWatchState(
+    recordsByRowId.set(
+      constants.SUBSCRIPTIONS_ROW_ID,
+      buildSubscriptionsRowRecord({
         subscriptionVideos,
-        settings.subscriptionsUnwatchedOnly,
-      ),
-      unwatchedOnly: settings.subscriptionsUnwatchedOnly,
-    });
+        unwatchedOnly: settings.subscriptionsUnwatchedOnly,
+      }),
+    );
   }
 
-  const orderedRecords = [];
-
-  for (const rowId of settings.rowOrder) {
-    const record = recordsByRowId.get(rowId);
-
-    if (!record) {
-      continue;
-    }
-
-    orderedRecords.push(record);
-    recordsByRowId.delete(rowId);
-  }
-
-  orderedRecords.push(...recordsByRowId.values());
-
-  return orderedRecords;
+  return orderByRowIds(recordsByRowId, settings.rowOrder);
 }
 
 export function buildFeedRowDescriptors(settings) {
@@ -86,51 +57,23 @@ export function buildFeedRowDescriptors(settings) {
     });
   }
 
-  const orderedDescriptors = [];
-
-  for (const rowId of settings.rowOrder) {
-    const descriptor = descriptorsByRowId.get(rowId);
-
-    if (!descriptor) {
-      continue;
-    }
-
-    orderedDescriptors.push(descriptor);
-    descriptorsByRowId.delete(rowId);
-  }
-
-  orderedDescriptors.push(...descriptorsByRowId.values());
-
-  return orderedDescriptors;
+  return orderByRowIds(descriptorsByRowId, settings.rowOrder);
 }
 
 export function buildFeedRowRecord({ descriptor, data }) {
   if (descriptor.type === "subscriptions") {
-    return {
-      rowId: constants.SUBSCRIPTIONS_ROW_ID,
-      type: "subscriptions",
-      title: "Subscriptions",
-      videos: filterVideosByWatchState(
-        Array.isArray(data) ? data : [],
-        descriptor.unwatchedOnly,
-      ),
+    return buildSubscriptionsRowRecord({
+      subscriptionVideos: data,
       unwatchedOnly: descriptor.unwatchedOnly,
-    };
+    });
   }
 
-  const playlist = descriptor.playlist;
-
-  return {
+  return buildPlaylistRowRecord({
     rowId: descriptor.rowId,
-    type: "playlist",
-    playlist,
-    title: data?.title || playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
-    videos: filterVideosByWatchState(
-      Array.isArray(data?.videos) ? data.videos : [],
-      descriptor.unwatchedOnly,
-    ),
+    playlist: descriptor.playlist,
+    data,
     unwatchedOnly: descriptor.unwatchedOnly,
-  };
+  });
 }
 
 export function filterVideosByWatchState(videos, unwatchedOnly) {
@@ -170,4 +113,53 @@ export function swapRowIds(rowOrder, rowId, swapRowId) {
   ];
 
   return nextRowOrder;
+}
+
+function buildPlaylistRowRecord({ rowId, playlist, data, unwatchedOnly }) {
+  return {
+    rowId,
+    type: "playlist",
+    playlist,
+    title: data?.title || playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
+    videos: filterVideosByWatchState(
+      Array.isArray(data?.videos) ? data.videos : [],
+      unwatchedOnly,
+    ),
+    unwatchedOnly,
+  };
+}
+
+function buildSubscriptionsRowRecord({
+  subscriptionVideos,
+  unwatchedOnly,
+}) {
+  return {
+    rowId: constants.SUBSCRIPTIONS_ROW_ID,
+    type: "subscriptions",
+    title: "Subscriptions",
+    videos: filterVideosByWatchState(
+      Array.isArray(subscriptionVideos) ? subscriptionVideos : [],
+      unwatchedOnly,
+    ),
+    unwatchedOnly,
+  };
+}
+
+function orderByRowIds(itemsByRowId, rowOrder) {
+  const orderedItems = [];
+
+  for (const rowId of rowOrder) {
+    const item = itemsByRowId.get(rowId);
+
+    if (!item) {
+      continue;
+    }
+
+    orderedItems.push(item);
+    itemsByRowId.delete(rowId);
+  }
+
+  orderedItems.push(...itemsByRowId.values());
+
+  return orderedItems;
 }
