@@ -24,8 +24,11 @@ export function findYouTubeCommandResolver(root = document) {
   return null;
 }
 
-export function performYouTubeVideoAction({ action, videoId }, root = document) {
-  const command = buildYouTubeVideoActionCommand({ action, videoId });
+export function performYouTubeVideoAction(
+  { action, videoId, playlistId },
+  root = document,
+) {
+  const command = buildYouTubeVideoActionCommand({ action, videoId, playlistId });
 
   if (!command) {
     return {
@@ -71,6 +74,7 @@ export function installVideoActionBridge(root = document) {
       {
         action: detail.action,
         videoId: detail.videoId,
+        playlistId: detail.playlistId,
       },
       root,
     );

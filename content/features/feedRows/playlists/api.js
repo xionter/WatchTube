@@ -30,7 +30,7 @@ export async function fetchPlaylistInitial(playlist) {
 
   return {
     title: parser.extractPlaylistTitle(json, html),
-    videos: extractVideos(parser.findPlaylistVideos(json)),
+    videos: extractVideos(parser.findPlaylistVideos(json), playlist?.playlistId),
     continuation,
     context: parser.extractInnertubeContext(config),
     apiKey: parser.extractInnertubeApiKey(config),
@@ -38,7 +38,7 @@ export async function fetchPlaylistInitial(playlist) {
   };
 }
 
-export async function fetchPlaylistContinuation({ continuation, context, apiKey }) {
+export async function fetchPlaylistContinuation({ continuation, context, apiKey, playlistId = "" }) {
   if (!continuation) {
     return {
       videos: [],
@@ -79,7 +79,7 @@ export async function fetchPlaylistContinuation({ continuation, context, apiKey 
 
   const json = await response.json();
   const nextContinuation = parser.findPlaylistContinuation(json);
-  const videos = extractVideos(parser.findContinuationVideos(json));
+  const videos = extractVideos(parser.findContinuationVideos(json), playlistId);
 
   if (
     !videos.length &&
@@ -153,7 +153,7 @@ export async function fetchAvailablePlaylists() {
   return dedupeAvailablePlaylists(candidates);
 }
 
-function extractVideos(contents) {
+function extractVideos(contents, playlistId = "") {
   const videos = [];
 
   for (const item of contents) {
@@ -168,6 +168,7 @@ function extractVideos(contents) {
     if (extractedVideo) {
       videos.push({
         ...extractedVideo,
+        playlistId,
         hasWatchProgress: hasWatchProgressMarker(video),
       });
     }

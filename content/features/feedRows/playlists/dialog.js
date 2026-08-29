@@ -11,6 +11,124 @@ import {
 } from "./settingsMutations.js";
 
 let addPlaylistDialog = null;
+let confirmationDialog = null;
+
+export function openConfirmationDialog({
+  title = "Confirm action",
+  message,
+  confirmLabel = "Remove",
+}) {
+  closeConfirmationDialog(false);
+
+  let resolveResult;
+  const result = new Promise((resolve) => {
+    resolveResult = resolve;
+  });
+  const overlay = document.createElement("div");
+  const dialog = document.createElement("form");
+  const titleElement = document.createElement("h2");
+  const messageElement = document.createElement("p");
+  const status = document.createElement("p");
+  const actions = document.createElement("div");
+  const cancelButton = document.createElement("button");
+  const confirmButton = document.createElement("button");
+
+  overlay.className = "watchtube-dialog-overlay";
+  overlay.dataset.watchtubeUi = "true";
+  dialog.className = "watchtube-dialog";
+  dialog.dataset.watchtubeUi = "true";
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.setAttribute("aria-label", title);
+  titleElement.className = "watchtube-dialog-title";
+  titleElement.textContent = title;
+  messageElement.className = "watchtube-dialog-status";
+  messageElement.textContent = message;
+  status.className = "watchtube-dialog-status";
+  status.hidden = true;
+  actions.className = "watchtube-dialog-actions";
+  cancelButton.className = "watchtube-dialog-button";
+  cancelButton.type = "button";
+  cancelButton.textContent = "Cancel";
+  confirmButton.className =
+    "watchtube-dialog-button watchtube-dialog-button-primary";
+  confirmButton.type = "submit";
+  confirmButton.textContent = confirmLabel;
+
+  const finish = (confirmed) => {
+    if (!confirmationDialog) {
+      return;
+    }
+
+    if (!confirmed) {
+      closeConfirmationDialog();
+    }
+
+    resolveResult(confirmed);
+  };
+
+  cancelButton.addEventListener("click", () => finish(false));
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay && !cancelButton.disabled) {
+      finish(false);
+    }
+  });
+  dialog.addEventListener("submit", (event) => {
+    event.preventDefault();
+    finish(true);
+  });
+
+  dialog.append(titleElement, messageElement, status, actions);
+  actions.append(cancelButton, confirmButton);
+  overlay.append(dialog);
+  document.documentElement.append(overlay);
+
+  const handleKeydown = (event) => {
+    if (event.key === "Escape" && !cancelButton.disabled) {
+      event.preventDefault();
+      finish(false);
+    }
+  };
+  document.addEventListener("keydown", handleKeydown, true);
+  confirmationDialog = {
+    overlay,
+    cancelButton,
+    confirmButton,
+    status,
+    handleKeydown,
+    setBusy(isBusy) {
+      cancelButton.disabled = isBusy;
+      confirmButton.disabled = isBusy;
+      confirmButton.textContent = isBusy ? "Removing..." : confirmLabel;
+    },
+    setError(errorMessage) {
+      status.hidden = false;
+      status.dataset.tone = "error";
+      status.textContent = errorMessage;
+    },
+    close() {
+      if (confirmationDialog?.overlay === overlay) {
+        closeConfirmationDialog(false);
+      }
+    },
+    promise: result,
+  };
+
+  confirmButton.focus();
+
+  return confirmationDialog;
+}
+
+function closeConfirmationDialog() {
+  if (!confirmationDialog) {
+    return;
+  }
+
+  const activeDialog = confirmationDialog;
+  confirmationDialog = null;
+  document.removeEventListener("keydown", activeDialog.handleKeydown, true);
+  activeDialog.overlay.remove();
+}
 
 export function openAddPlaylistDialog() {
   closeAddPlaylistDialog();

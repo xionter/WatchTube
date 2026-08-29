@@ -710,6 +710,16 @@ function renderRowData({ grid, descriptor, data, index, rowCount }) {
     title: record.title,
     videos: record.videos,
     loadAvatar: playlists.api.getChannelAvatarUrl,
+    onVideoRemoved: ({ video, playlistId }) =>
+      removeVideoFromPlaylistCache({
+        grid,
+        descriptor,
+        data,
+        video,
+        playlistId,
+        index,
+        rowCount,
+      }),
     controls: editMode
       ? createRowControls({
           record,
@@ -727,6 +737,33 @@ function renderRowData({ grid, descriptor, data, index, rowCount }) {
   });
 
   return true;
+}
+
+async function removeVideoFromPlaylistCache({
+  grid,
+  descriptor,
+  data,
+  video,
+  playlistId,
+  index,
+  rowCount,
+}) {
+  if (
+    descriptor.type !== "playlist" ||
+    descriptor.playlist.playlistId !== playlistId
+  ) {
+    return;
+  }
+
+  const nextData = {
+    ...data,
+    videos: (data?.videos || []).filter(
+      (entry) => entry.videoId !== video?.videoId,
+    ),
+  };
+
+  await writeTrackedCachedRecord(getRowCacheKey(descriptor), nextData);
+  renderRowData({ grid, descriptor, data: nextData, index, rowCount });
 }
 
 async function fetchAndCacheRowData(descriptor, previousData = null) {
@@ -998,6 +1035,7 @@ async function runPlaylistExpansionJob(job) {
         continuation: data.continuation,
         context: data.context,
         apiKey: data.apiKey,
+        playlistId: job.descriptor.playlist.playlistId,
       });
     } catch (error) {
       await writeTrackedCachedRecord(getRowCacheKey(job.descriptor), {

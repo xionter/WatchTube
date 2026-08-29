@@ -1,6 +1,7 @@
 import * as utils from "../../../core/utils.js";
 import * as constants from "../../../core/constants.js";
 import * as avatar from "./avatar.js";
+import { openConfirmationDialog } from "../playlists/dialog.js";
 import {
   buildVideoMenuActions,
   decodeVideoActionBridgeDetail,
@@ -9,10 +10,12 @@ import {
   VIDEO_ACTION_QUEUE,
   VIDEO_ACTION_REQUEST_EVENT,
   VIDEO_ACTION_RESPONSE_EVENT,
+  VIDEO_ACTION_REMOVE_FROM_PLAYLIST,
   VIDEO_ACTION_WATCH_LATER,
 } from "./videoActions.js";
 
 const shuffleLocks = new Set();
+const playlistRemovalLocks = new Set();
 const rowStates = new Map();
 const sectionCache = new Map();
 
@@ -56,7 +59,7 @@ export function syncRowShells(grid, rowIds) {
 
 export function renderFeedRow(
   grid,
-  { rowId, title, videos, loadAvatar, controls = null, controlsSignature = "" },
+  { rowId, title, videos, loadAvatar, controls = null, onVideoRemoved = null, controlsSignature = "" },
 ) {
   const mounted = ensureMountedSection(grid, rowId);
 
@@ -80,6 +83,7 @@ export function renderFeedRow(
       title,
       sourceSignature: buildRenderSignature(videos),
       controls,
+      onVideoRemoved,
       controlsSignature,
       videos,
       loadAvatar,
@@ -94,6 +98,7 @@ export function renderFeedRow(
     videos,
     loadAvatar,
     controls,
+    onVideoRemoved,
     controlsSignature,
     picks: getStablePicks(videos, state?.displayedUrls),
   });
@@ -183,7 +188,7 @@ export function renderEditModeButton(grid, { isEditing, onToggle }) {
 
 function shuffleFeedRow(
   grid,
-  { rowId, title, videos, loadAvatar, controls, controlsSignature },
+  { rowId, title, videos, loadAvatar, controls, onVideoRemoved, controlsSignature },
 ) {
   const section = findSection(rowId);
 
@@ -197,6 +202,7 @@ function shuffleFeedRow(
     videos,
     loadAvatar,
     controls,
+    onVideoRemoved,
     controlsSignature,
     picks: getRandomPicks(videos),
   });
@@ -204,7 +210,7 @@ function shuffleFeedRow(
 
 function replaceFeedRowContents(
   section,
-  { rowId, title, videos, loadAvatar, controls, controlsSignature, picks },
+  { rowId, title, videos, loadAvatar, controls, onVideoRemoved, controlsSignature, picks },
 ) {
   renderInProgress = true;
 
@@ -234,7 +240,7 @@ function replaceFeedRowContents(
     }
 
     for (const video of picks) {
-      fragment.append(createGridItem(video, rowId, title, loadAvatar));
+      fragment.append(createGridItem(video, rowId, title, loadAvatar, onVideoRemoved));
     }
 
     section.append(fragment);
@@ -244,6 +250,7 @@ function replaceFeedRowContents(
       title,
       sourceSignature: buildRenderSignature(videos),
       controls,
+      onVideoRemoved,
       controlsSignature,
       videos,
       loadAvatar,
@@ -375,13 +382,13 @@ function ensureSectionPosition(grid, section) {
   }
 }
 
-function createGridItem(video, rowId, title, loadAvatar) {
+function createGridItem(video, rowId, title, loadAvatar, onVideoRemoved) {
   const item = document.createElement("div");
 
   item.className = "watchtube-item";
   item.dataset.watchtubeRow = rowId;
 
-  item.append(createCard(video, title, loadAvatar));
+  item.append(createCard(video, title, loadAvatar, onVideoRemoved));
 
   return item;
 }
@@ -420,6 +427,7 @@ function createShuffleButton(rowId) {
         videos: state.videos,
         loadAvatar: state.loadAvatar,
         controls: state.controls,
+        onVideoRemoved: state.onVideoRemoved,
         controlsSignature: state.controlsSignature,
       });
     } finally {
@@ -434,7 +442,7 @@ function createShuffleButton(rowId) {
   return button;
 }
 
-function createCard(video, title, loadAvatar) {
+function createCard(video, title, loadAvatar, onVideoRemoved) {
   const card = document.createElement("div");
 
   card.className = "watchtube-card";
@@ -453,7 +461,7 @@ function createCard(video, title, loadAvatar) {
   const cardTitle = document.createElement("div");
   const channelLink = document.createElement("a");
   const source = document.createElement("div");
-  const actions = createVideoActions(video);
+  const actions = createVideoActions(video, onVideoRemoved);
 
   thumbnailWrap.className = "watchtube-thumb-wrap";
 
@@ -491,7 +499,7 @@ function createCard(video, title, loadAvatar) {
   return card;
 }
 
-function createVideoActions(video) {
+function createVideoActions(video, onVideoRemoved) {
   const wrapper = document.createElement("div");
   const button = document.createElement("button");
   const menuId = `watchtube-video-actions-menu-${++videoActionsMenuId}`;
@@ -513,7 +521,7 @@ function createVideoActions(video) {
   button.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    toggleVideoActionsMenu({ button, menuId, video });
+    toggleVideoActionsMenu({ button, menuId, video, onVideoRemoved });
   });
 
   button.addEventListener("keydown", (event) => {
@@ -527,6 +535,7 @@ function createVideoActions(video) {
       button,
       menuId,
       video,
+      onVideoRemoved,
       focusIndex: event.key === "ArrowUp" ? -1 : 0,
     });
   });
@@ -536,20 +545,20 @@ function createVideoActions(video) {
   return wrapper;
 }
 
-function toggleVideoActionsMenu({ button, menuId, video }) {
+function toggleVideoActionsMenu({ button, menuId, video, onVideoRemoved }) {
   if (activeVideoActionsMenu?.button === button) {
     closeActiveVideoActionsMenu({ restoreFocus: true });
 
     return;
   }
 
-  openVideoActionsMenu({ button, menuId, video });
+  openVideoActionsMenu({ button, menuId, video, onVideoRemoved });
 }
 
-function openVideoActionsMenu({ button, menuId, video, focusIndex = null }) {
+function openVideoActionsMenu({ button, menuId, video, onVideoRemoved, focusIndex = null }) {
   closeActiveVideoActionsMenu();
 
-  const menu = createVideoActionsMenu({ button, menuId, video });
+  const menu = createVideoActionsMenu({ button, menuId, video, onVideoRemoved });
 
   document.documentElement.append(menu);
   positionVideoActionsMenu(button, menu);
@@ -572,7 +581,7 @@ function openVideoActionsMenu({ button, menuId, video, focusIndex = null }) {
   }
 }
 
-function createVideoActionsMenu({ button, menuId, video }) {
+function createVideoActionsMenu({ button, menuId, video, onVideoRemoved }) {
   const menu = document.createElement("div");
   const actions = buildVideoMenuActions(video);
 
@@ -601,6 +610,10 @@ function createVideoActionsMenu({ button, menuId, video }) {
           if (action.id === "share") {
             void shareVideoLink({ video, copyText });
           }
+
+          if (action.id === VIDEO_ACTION_REMOVE_FROM_PLAYLIST) {
+            void confirmAndRemoveFromPlaylist({ action, video, onSuccess: onVideoRemoved });
+          }
         },
       }),
     );
@@ -615,8 +628,47 @@ function createVideoActionsMenu({ button, menuId, video }) {
   return menu;
 }
 
-function performVideoAction(action, videoId) {
-  return new Promise((resolve, reject) => {
+async function confirmAndRemoveFromPlaylist({ action, video, onSuccess }) {
+  const lockKey = `${action.playlistId}:${action.videoId}`;
+
+  if (playlistRemovalLocks.has(lockKey)) {
+    return;
+  }
+
+  const confirmation = openConfirmationDialog({
+    title: "Remove from playlist",
+    message: `Remove “${video.title || "this video"}” from the playlist?`,
+  });
+  const shouldRemove = await confirmation.promise;
+
+  if (!shouldRemove) {
+    return;
+  }
+
+  if (playlistRemovalLocks.has(lockKey)) {
+    return;
+  }
+
+  playlistRemovalLocks.add(lockKey);
+  confirmation.setBusy(true);
+
+  try {
+    await performVideoAction(action.id, action.videoId, action.playlistId, true);
+    await onSuccess?.({ video, playlistId: action.playlistId });
+    confirmation.close();
+  } catch (error) {
+    confirmation.setError(
+      "The video could not be removed from the playlist. Please try again.",
+    );
+    confirmation.setBusy(false);
+    console.warn("WatchTube: failed to remove video from playlist", error);
+  } finally {
+    playlistRemovalLocks.delete(lockKey);
+  }
+}
+
+function performVideoAction(action, videoId, playlistId = "", throwOnError = false) {
+  const request = new Promise((resolve, reject) => {
     const requestId = `watchtube-video-action-${Date.now()}-${++videoActionRequestId}`;
     const timeoutId = window.setTimeout(() => {
       cleanup();
@@ -653,12 +705,17 @@ function performVideoAction(action, videoId) {
           action,
           requestId,
           videoId,
+          playlistId,
         }),
       }),
     );
-  }).catch((error) => {
-    console.warn("WatchTube: failed to run video action", error);
   });
+
+  return throwOnError
+    ? request
+    : request.catch((error) => {
+        console.warn("WatchTube: failed to run video action", error);
+      });
 }
 
 function createVideoActionsMenuItem({ icon, label, onSelect }) {
@@ -716,6 +773,10 @@ function getVideoActionsMenuIconPath(icon) {
 
   if (icon === "share") {
     return "M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.06-.23.09-.46.09-.7s-.03-.47-.09-.7l7.05-4.11A2.99 2.99 0 1 0 15 5c0 .24.03.47.09.7L8.04 9.81A2.99 2.99 0 1 0 8.04 14.2l7.12 4.17c-.05.2-.08.41-.08.63a2.92 2.92 0 1 0 2.92-2.92Z";
+  }
+
+  if (icon === "remove") {
+    return "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12ZM8 9h2v10H8V9Zm6 0h2v10h-2V9ZM15.5 4l-1-1h-5l-1 1H5v2h14V4h-3.5Z";
   }
 
   return "";

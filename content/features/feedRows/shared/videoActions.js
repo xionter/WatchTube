@@ -2,6 +2,7 @@ export const VIDEO_ACTION_REQUEST_EVENT = "watchtube:video-action-request";
 export const VIDEO_ACTION_RESPONSE_EVENT = "watchtube:video-action-response";
 export const VIDEO_ACTION_QUEUE = "queue";
 export const VIDEO_ACTION_WATCH_LATER = "watchLater";
+export const VIDEO_ACTION_REMOVE_FROM_PLAYLIST = "removeFromPlaylist";
 
 const QUEUE_LIST_TYPE = "PLAYLIST_EDIT_LIST_TYPE_QUEUE";
 const WATCH_LATER_PLAYLIST_ID = "WL";
@@ -49,6 +50,16 @@ export function buildVideoMenuActions(video) {
         videoId,
       },
     );
+
+    if (video?.playlistId) {
+      actions.push({
+        id: VIDEO_ACTION_REMOVE_FROM_PLAYLIST,
+        label: "Remove from playlist",
+        icon: "remove",
+        videoId,
+        playlistId: video.playlistId,
+      });
+    }
   }
 
   if (video?.url) {
@@ -165,13 +176,44 @@ export function buildYouTubeWatchLaterCommand(videoId) {
   };
 }
 
-export function buildYouTubeVideoActionCommand({ action, videoId }) {
+export function buildYouTubeRemoveFromPlaylistCommand({ videoId, playlistId }) {
+  const normalizedVideoId = String(videoId || "").trim();
+  const normalizedPlaylistId = String(playlistId || "").trim();
+
+  if (!normalizedVideoId || !normalizedPlaylistId) {
+    return null;
+  }
+
+  return {
+    commandMetadata: {
+      webCommandMetadata: {
+        sendPost: true,
+        apiUrl: "/youtubei/v1/browse/edit_playlist",
+      },
+    },
+    playlistEditEndpoint: {
+      playlistId: normalizedPlaylistId,
+      actions: [
+        {
+          removedVideoId: normalizedVideoId,
+          action: "ACTION_REMOVE_VIDEO",
+        },
+      ],
+    },
+  };
+}
+
+export function buildYouTubeVideoActionCommand({ action, videoId, playlistId }) {
   if (action === VIDEO_ACTION_QUEUE) {
     return buildYouTubeQueueCommand(videoId);
   }
 
   if (action === VIDEO_ACTION_WATCH_LATER) {
     return buildYouTubeWatchLaterCommand(videoId);
+  }
+
+  if (action === VIDEO_ACTION_REMOVE_FROM_PLAYLIST) {
+    return buildYouTubeRemoveFromPlaylistCommand({ videoId, playlistId });
   }
 
   return null;

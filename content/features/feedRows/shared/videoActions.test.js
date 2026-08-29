@@ -5,6 +5,7 @@ import {
   buildYouTubeQueueCommand,
   buildYouTubeVideoActionCommand,
   buildYouTubeWatchLaterCommand,
+  buildYouTubeRemoveFromPlaylistCommand,
   decodeVideoActionBridgeDetail,
   encodeVideoActionBridgeDetail,
   extractVideoIdFromUrl,
@@ -12,6 +13,7 @@ import {
   isShareAbortError,
   shareVideoLink,
   VIDEO_ACTION_QUEUE,
+  VIDEO_ACTION_REMOVE_FROM_PLAYLIST,
   VIDEO_ACTION_WATCH_LATER,
 } from "./videoActions.js";
 
@@ -89,6 +91,25 @@ describe("video action helpers", () => {
     );
   });
 
+  it("adds playlist removal only when playlist identity is available", () => {
+    const playlistActions = buildVideoMenuActions({
+      videoId: "abc123",
+      playlistId: "PL123",
+      url: "https://www.youtube.com/watch?v=abc123",
+    });
+    const regularActions = buildVideoMenuActions({
+      videoId: "abc123",
+      url: "https://www.youtube.com/watch?v=abc123",
+    });
+
+    expect(playlistActions.map((action) => action.label)).toContain(
+      "Remove from playlist",
+    );
+    expect(regularActions.map((action) => action.label)).not.toContain(
+      "Remove from playlist",
+    );
+  });
+
   it("builds the YouTube save-to-watch-later command", () => {
     expect(buildYouTubeWatchLaterCommand("abc123")).toEqual({
       commandMetadata: {
@@ -122,6 +143,18 @@ describe("video action helpers", () => {
         videoId: "abc123",
       }),
     ).toEqual(buildYouTubeWatchLaterCommand("abc123"));
+    expect(
+      buildYouTubeVideoActionCommand({
+        action: VIDEO_ACTION_REMOVE_FROM_PLAYLIST,
+        videoId: "abc123",
+        playlistId: "PL123",
+      }),
+    ).toEqual(
+      buildYouTubeRemoveFromPlaylistCommand({
+        videoId: "abc123",
+        playlistId: "PL123",
+      }),
+    );
     expect(
       buildYouTubeVideoActionCommand({
         action: "share",

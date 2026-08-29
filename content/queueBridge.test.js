@@ -6,6 +6,7 @@ import {
 } from "./queueBridge.js";
 import {
   VIDEO_ACTION_QUEUE,
+  VIDEO_ACTION_REMOVE_FROM_PLAYLIST,
   VIDEO_ACTION_WATCH_LATER,
 } from "./features/feedRows/shared/videoActions.js";
 
@@ -74,6 +75,35 @@ describe("YouTube video action bridge", () => {
       expect.objectContaining({
         playlistEditEndpoint: expect.objectContaining({
           playlistId: "WL",
+        }),
+      }),
+    );
+  });
+
+  it("sends the remove-from-playlist command to YouTube", () => {
+    const resolver = { resolveCommand: vi.fn() };
+    const root = createRootWithResolver(resolver);
+
+    expect(
+      performYouTubeVideoAction(
+        {
+          action: VIDEO_ACTION_REMOVE_FROM_PLAYLIST,
+          videoId: "abc123",
+          playlistId: "PL123",
+        },
+        root,
+      ),
+    ).toEqual({ ok: true, error: "" });
+    expect(resolver.resolveCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        playlistEditEndpoint: expect.objectContaining({
+          playlistId: "PL123",
+          actions: [
+            {
+              removedVideoId: "abc123",
+              action: "ACTION_REMOVE_VIDEO",
+            },
+          ],
         }),
       }),
     );

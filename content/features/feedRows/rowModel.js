@@ -116,13 +116,20 @@ export function swapRowIds(rowOrder, rowId, swapRowId) {
 }
 
 function buildPlaylistRowRecord({ rowId, playlist, data, unwatchedOnly }) {
+  const playlistVideos = (Array.isArray(data?.videos) ? data.videos : []).map(
+    (video) => ({
+      ...video,
+      playlistId: playlist.playlistId,
+    }),
+  );
+
   return {
     rowId,
     type: "playlist",
     playlist,
     title: data?.title || playlist.title || constants.DEFAULT_PLAYLIST_TITLE,
     videos: filterVideosByWatchState(
-      Array.isArray(data?.videos) ? data.videos : [],
+      playlistVideos,
       unwatchedOnly,
     ),
     unwatchedOnly,
